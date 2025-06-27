@@ -1,0 +1,144 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:equatable/equatable.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:developer' as developer;
+
+import '../../../../core/errors/failures.dart';
+import '../../../../core/usecases.dart';
+import '../../../../injection_container.dart';
+import '../../domain/entities/note.dart';
+import '../../domain/usecases/get_notes.dart';
+
+part 'notes_assignments_bloc.dart';
+part 'notes_assignments_event.dart';
+part 'notes_assignments_state.dart';
+
+class NotesAssignmentsPage extends StatelessWidget {
+  const NotesAssignmentsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => sl<NotesAssignmentsBloc>()..add(LoadNotes()),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Notes & Assignments'),
+          backgroundColor: Colors.orange[700],
+          foregroundColor: Colors.white,
+        ),
+        body: BlocBuilder<NotesAssignmentsBloc, NotesAssignmentsState>(
+          builder: (context, state) {
+            if (state is NotesAssignmentsLoading) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (state is NotesAssignmentsLoaded) {
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: state.notes.length,
+                itemBuilder: (context, index) {
+                  final note = state.notes[index];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: InkWell(
+                      onTap: () => _openPdf(context, note.pdfUrl),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange[100],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                "Grade: " + note.grade,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange[800],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              note.title,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              note.description,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            } else if (state is NotesAssignmentsError) {
+              return Center(
+                child: Text(state.message),
+              );
+            }
+            return const Center(child: Text('No notes or assignments found.'));
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openPdf(BuildContext context, String pdfUrl) async {
+    developer.log('PDF URL: $pdfUrl', name: 'NotesAssignmentsPage');
+    
+    if (pdfUrl.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No PDF URL available'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final Uri url = Uri.parse(pdfUrl);
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not open PDF'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+} 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "432852049973",
+    "project_id": "tuition-class-management-app",
+    "storage_bucket": "tuition-class-management-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:432852049973:android:10906644ced5534cff517c",
+        "android_client_info": {
+          "package_name": "com.fusionbits.classes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA00JmICzj8sikAuKqxSev5sXgoWWTAQZc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
