@@ -47,16 +47,27 @@ class TimetableRemoteDataSourceImpl implements TimetableRemoteDataSource {
       developer.log('🔍 Fetching available grades from Firestore...', name: 'TimetableDataSource');
       
       final querySnapshot = await firestore.collection('timetable').get();
-      
-      final grades = querySnapshot.docs
-          .map((doc) => doc.data()['grade'] as String?)
-          .where((grade) => grade != null)
-          .map((grade) => grade!)
-          .toSet()
-          .toList()
-        ..sort((a, b) => int.tryParse(a)?.compareTo(int.tryParse(b) ?? 0) ?? a.compareTo(b));
-      
-      developer.log('✅ Found ${grades.length} available grades: $grades', name: 'TimetableDataSource');
+
+      // Map to store the minimum index for each grade
+      final Map<String, int> gradeToMinIndex = {};
+
+      for (final doc in querySnapshot.docs) {
+        final data = doc.data();
+        final grade = data['grade'] as String?;
+        final indexRaw = data['index'];
+        final index = indexRaw is int ? indexRaw : int.tryParse(indexRaw?.toString() ?? '');
+        if (grade != null && index != null) {
+          if (!gradeToMinIndex.containsKey(grade) || index < gradeToMinIndex[grade]!) {
+            gradeToMinIndex[grade] = index;
+          }
+        }
+      }
+
+      // Sort grades by their minimum index
+      final grades = gradeToMinIndex.keys.toList()
+        ..sort((a, b) => gradeToMinIndex[a]!.compareTo(gradeToMinIndex[b]!));
+
+      developer.log('✅ Found [32m${grades.length}[0m available grades (sorted by index): $grades', name: 'TimetableDataSource');
       return grades;
     } catch (e) {
       developer.log('❌ Error fetching available grades: $e', name: 'TimetableDataSource');

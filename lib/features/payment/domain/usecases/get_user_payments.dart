@@ -15,6 +15,9 @@ class GetUserPayments
   @override
   Future<Either<Failure, List<Payment>>> call(
       GetUserPaymentsParams params) async {
+    print('🎬 GetUserPayments usecase called with parameters:');
+    print('🎬   - userId: ${params.userId}');
+    
     return await repository.getUserPayments(params.userId);
   }
 }

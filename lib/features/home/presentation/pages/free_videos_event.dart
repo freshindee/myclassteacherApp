@@ -7,4 +7,11 @@ abstract class FreeVideosEvent extends Equatable {
   List<Object> get props => [];
 }
 
-class LoadFreeVideos extends FreeVideosEvent {} 
+class LoadFreeVideos extends FreeVideosEvent {}
+
+class LoadFreeVideosByGrade extends FreeVideosEvent {
+  final String grade;
+  const LoadFreeVideosByGrade(this.grade);
+  @override
+  List<Object> get props => [grade];
+} 

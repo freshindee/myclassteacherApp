@@ -18,9 +18,18 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
   @override
   Future<void> createPayment(Payment payment) async {
     try {
+      print('🎬 PaymentDataSource: Creating payment in Firestore with data:');
+      print('🎬   - userId: ${payment.userId}');
+      print('🎬   - grade: ${payment.grade} (grade number only)');
+      print('🎬   - subject: ${payment.subject}');
+      print('🎬   - month: ${payment.month}');
+      print('🎬   - year: ${payment.year}');
+      print('🎬   - amount: ${payment.amount}');
+      print('🎬   - status: ${payment.status}');
+      
       final paymentData = {
         'userId': payment.userId,
-        'grade': payment.grade,
+        'grade': payment.grade, // This now contains only the grade number
         'subject': payment.subject,
         'month': payment.month,
         'year': payment.year,
@@ -31,8 +40,11 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
         'slipUrl': payment.slipUrl,
       };
 
+      print('🎬 PaymentDataSource: Saving payment data to Firestore: $paymentData');
       await firestore.collection('payments').add(paymentData);
+      print('🎬 PaymentDataSource: Payment saved successfully to Firestore');
     } catch (e) {
+      print('❌ PaymentDataSource: Failed to create payment: $e');
       throw Exception('Failed to create payment: $e');
     }
   }
@@ -78,19 +90,35 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
   @override
   Future<List<PaymentModel>> getUserPayments(String userId) async {
     try {
+      print('🎬 PaymentDataSource.getUserPayments called with parameters:');
+      print('🎬   - userId: $userId');
+      print('🎬 Starting Firestore query on "payments" collection');
+      print('🎬 Applied filter: userId = $userId');
+      print('🎬 Applied filter: status = approved');
+      
       final querySnapshot = await firestore
           .collection('payments')
           .where('userId', isEqualTo: userId)
-          .where('status', isEqualTo: 'completed')
+          .where('status', isEqualTo: 'approved')
           .get();
 
-      return querySnapshot.docs
-          .map((doc) => PaymentModel.fromJson({
-                'id': doc.id,
-                ...doc.data(),
-              }))
+      print('🎬 PaymentDataSource: Found ${querySnapshot.docs.length} payment documents');
+      
+      final payments = querySnapshot.docs
+          .map((doc) {
+            final data = doc.data();
+            print('🎬 Payment document ${doc.id}: $data');
+            return PaymentModel.fromJson({
+              'id': doc.id,
+              ...data,
+            });
+          })
           .toList();
+      
+      print('🎬 PaymentDataSource: Successfully parsed ${payments.length} payments');
+      return payments;
     } catch (e) {
+      print('❌ PaymentDataSource: Error fetching payments: $e');
       throw Exception('Failed to get user payments: $e');
     }
   }

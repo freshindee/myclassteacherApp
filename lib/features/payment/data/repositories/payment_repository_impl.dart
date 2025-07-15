@@ -18,14 +18,26 @@ class PaymentRepositoryImpl implements PaymentRepository {
 
   @override
   Future<Either<Failure, void>> createPayment(Payment payment) async {
+    print('🎬 PaymentRepository: Creating payment with parameters:');
+    print('🎬   - userId: ${payment.userId}');
+    print('🎬   - grade: ${payment.grade} (grade number only)');
+    print('🎬   - subject: ${payment.subject}');
+    print('🎬   - month: ${payment.month}');
+    print('🎬   - year: ${payment.year}');
+    print('🎬   - amount: ${payment.amount}');
+    print('🎬   - status: ${payment.status}');
+    
     if (await networkInfo.isConnected) {
       try {
         await remoteDataSource.createPayment(payment);
+        print('🎬 PaymentRepository: Payment created successfully');
         return const Right(null);
       } catch (e) {
+        print('❌ PaymentRepository: Failed to create payment: $e');
         return Left(ServerFailure(e.toString()));
       }
     } else {
+      print('❌ PaymentRepository: No internet connection');
       return Left(ServerFailure('No internet connection'));
     }
   }
@@ -61,15 +73,24 @@ class PaymentRepositoryImpl implements PaymentRepository {
 
   @override
   Future<Either<Failure, List<Payment>>> getUserPayments(String userId) async {
+    print('🎬 PaymentRepository.getUserPayments called with parameters:');
+    print('🎬   - userId: $userId');
+    
     if (await networkInfo.isConnected) {
       try {
         final paymentModels = await remoteDataSource.getUserPayments(userId);
+        print('🎬 PaymentRepository: Received ${paymentModels.length} payment models from data source');
+        
         final payments = paymentModels.map((model) => model.toEntity()).toList();
+        print('🎬 PaymentRepository: Converted ${payments.length} payment models to entities');
+        
         return Right(payments);
       } catch (e) {
+        print('❌ PaymentRepository: Failed to get user payments: $e');
         return Left(ServerFailure(e.toString()));
       }
     } else {
+      print('❌ PaymentRepository: No internet connection');
       return Left(ServerFailure('No internet connection'));
     }
   }

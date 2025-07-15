@@ -15,6 +15,7 @@ import 'today_classes_page.dart';
 import 'teachers_page.dart';
 import 'view_old_videos_page.dart';
 import 'old_videos_bloc.dart';
+import 'free_videos_bloc.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -37,7 +38,7 @@ class HomePage extends StatelessWidget {
       ),
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
-          if (state.status == FormzStatus.submissionSuccess) {
+          if (state.isLogout == true) {
             Navigator.of(context).pushReplacementNamed('/login');
           }
         },
@@ -96,7 +97,10 @@ class HomePage extends StatelessWidget {
                       () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const FreeVideosPage(),
+                          builder: (context) => BlocProvider(
+                            create: (_) => sl<FreeVideosBloc>(),
+                            child: const FreeVideosPage(),
+                          ),
                         ),
                       ),
                     ),
@@ -165,15 +169,19 @@ class HomePage extends StatelessWidget {
                       'Pay Fees',
                       Icons.payment,
                       Colors.green,
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => BlocProvider(
-                            create: (_) => sl<PaymentBloc>(),
-                            child: const PaymentPage(userId: '1'),
+                      () {
+                        final authState = context.read<AuthBloc>().state;
+                        final userId = authState.user?.userId ?? '1'; // Fallback to '1' if no user
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => BlocProvider(
+                              create: (_) => sl<PaymentBloc>(),
+                              child: PaymentPage(userId: userId),
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                     _buildMenuCard(
                       context,
@@ -202,20 +210,6 @@ class HomePage extends StatelessWidget {
                         ),
                       ),
                     ),
-
-                     _buildMenuCard(
-                      context,
-                      'Add Video',
-                      Icons.add,
-                      Colors.purple,
-                         () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AddVideoPage(),
-                        ),
-                      ),
-                    ),
-
                   ],
                 ),
               ],

@@ -33,12 +33,12 @@ class SignupPage extends StatelessWidget {
                 children: [
                   TextField(
                     decoration: const InputDecoration(
-                      labelText: AppStrings.emailHint,
+                      labelText: AppStrings.phoneNumberHint,
                       border: OutlineInputBorder(),
                     ),
-                    onChanged: (email) {
+                    onChanged: (phoneNumber) {
                       context.read<AuthBloc>().add(
-                        EmailChanged(email),
+                        PhoneNumberChanged(phoneNumber),
                       );
                     },
                   ),

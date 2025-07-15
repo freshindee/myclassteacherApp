@@ -6,76 +6,128 @@ import '../../../../injection_container.dart';
 import '../../domain/entities/video.dart';
 import 'free_videos_bloc.dart';
 
-class FreeVideosPage extends StatelessWidget {
+class FreeVideosPage extends StatefulWidget {
   const FreeVideosPage({super.key});
 
   @override
+  State<FreeVideosPage> createState() => _FreeVideosPageState();
+}
+
+class _FreeVideosPageState extends State<FreeVideosPage> {
+  String? selectedGrade;
+  final List<String> grades = [
+    '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'
+  ];
+
+  @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => sl<FreeVideosBloc>()..add(LoadFreeVideos()),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Free Videos'),
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
-        ),
-        body: BlocBuilder<FreeVideosBloc, FreeVideosState>(
-          builder: (context, state) {
-            if (state is FreeVideosInitial) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (state is FreeVideosLoading) {
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Loading free videos...'),
-                  ],
-                ),
-              );
-            } else if (state is FreeVideosLoaded) {
-              return _buildVideoList(context, state.videos);
-            } else if (state is FreeVideosError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text('Error: ${state.message}'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.read<FreeVideosBloc>().add(LoadFreeVideos());
-                      },
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              );
-            }
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.video_library, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('No videos available'),
-                ],
-              ),
-            );
-          },
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            context.read<FreeVideosBloc>().add(LoadFreeVideos());
-          },
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
-          child: const Icon(Icons.refresh),
-        ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('නොමිලේ වීඩියෝ'),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
       ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                const Text('පන්තිය තෝරන්න: ', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButton<String>(
+                    value: selectedGrade,
+                    hint: const Text('All'),
+                    isExpanded: true,
+                    items: grades.map((grade) {
+                      return DropdownMenuItem(
+                        value: grade,
+                        child: Text('Grade $grade'),
+                      );
+                    }).toList(),
+                    onChanged: (grade) {
+                      setState(() {
+                        selectedGrade = grade;
+                      });
+                      if (grade != null) {
+                        context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(grade));
+                      } else {
+                        context.read<FreeVideosBloc>().add(LoadFreeVideos());
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: BlocBuilder<FreeVideosBloc, FreeVideosState>(
+              builder: (context, state) {
+                if (selectedGrade == null) {
+                  return const Center(
+                    child: Text('වීඩියෝ නැරබීමට පන්තිය තෝරන්න.'),
+                  );
+                }
+                if (state is FreeVideosLoading) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Loading free videos...'),
+                      ],
+                    ),
+                  );
+                } else if (state is FreeVideosLoaded) {
+                  return _buildVideoList(context, state.videos);
+                } else if (state is FreeVideosError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text('Error: ${state.message}'),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            if (selectedGrade != null) {
+                              context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(selectedGrade!));
+                            }
+                          },
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.video_library, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('No videos available'),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: selectedGrade != null
+          ? FloatingActionButton(
+              onPressed: () {
+                context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(selectedGrade!));
+              },
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.refresh),
+            )
+          : null,
     );
   }
 

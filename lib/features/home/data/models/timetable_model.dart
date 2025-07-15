@@ -10,6 +10,9 @@ class TimetableModel extends Equatable {
   final String? teacher;
   final String? room;
   final String? description;
+  final int? index;
+  final String? time2;
+  final String? time3;
 
   const TimetableModel({
     required this.id,
@@ -20,6 +23,9 @@ class TimetableModel extends Equatable {
     this.teacher,
     this.room,
     this.description,
+    this.index,
+    this.time2,
+    this.time3,
   });
 
   @override
@@ -32,6 +38,9 @@ class TimetableModel extends Equatable {
         teacher,
         room,
         description,
+        index,
+        time2,
+        time3,
       ];
 
   factory TimetableModel.fromJson(Map<String, dynamic> json) {
@@ -44,6 +53,9 @@ class TimetableModel extends Equatable {
       teacher: json['teacher'] as String?,
       room: json['room'] as String?,
       description: json['description'] as String?,
+      index: json['index'] is int ? json['index'] : int.tryParse(json['index']?.toString() ?? ''),
+      time2: json['time2'] as String?,
+      time3: json['time3'] as String?,
     );
   }
 
@@ -57,6 +69,9 @@ class TimetableModel extends Equatable {
       'teacher': teacher,
       'room': room,
       'description': description,
+      'index': index,
+      'time2': time2,
+      'time3': time3,
     };
   }
 
@@ -70,6 +85,9 @@ class TimetableModel extends Equatable {
       teacher: teacher,
       room: room,
       description: description,
+      index: index,
+      time2: time2,
+      time3: time3,
     );
   }
 } 

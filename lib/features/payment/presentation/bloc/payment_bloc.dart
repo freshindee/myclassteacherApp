@@ -41,10 +41,18 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     // Convert month name to month number
     final monthNumber = MonthUtils.getMonthNumber(event.month);
 
+    print('🎬 PaymentBloc: Creating payment with parameters:');
+    print('🎬   - userId: ${event.userId}');
+    print('🎬   - grade: ${event.grade} (grade number only)');
+    print('🎬   - subject: ${event.subject}');
+    print('🎬   - month: $monthNumber (converted from: ${event.month})');
+    print('🎬   - year: ${event.year}');
+    print('🎬   - amount: ${event.amount}');
+
     final payment = Payment(
       id: paymentId,
       userId: event.userId,
-      grade: event.grade,
+      grade: event.grade, // This now contains only the grade number
       subject: event.subject,
       month: monthNumber, // Store as integer
       year: event.year,

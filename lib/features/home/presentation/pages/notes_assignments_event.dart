@@ -7,4 +7,11 @@ abstract class NotesAssignmentsEvent extends Equatable {
   List<Object> get props => [];
 }
 
-class LoadNotes extends NotesAssignmentsEvent {} 
+class LoadNotes extends NotesAssignmentsEvent {}
+
+class LoadNotesByGrade extends NotesAssignmentsEvent {
+  final String grade;
+  const LoadNotesByGrade(this.grade);
+  @override
+  List<Object> get props => [grade];
+} 

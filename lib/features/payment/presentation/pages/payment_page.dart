@@ -25,8 +25,8 @@ class _PaymentPageState extends State<PaymentPage> {
   bool _isUploading = false;
   double _calculatedAmount = 0.0;
 
-  final List<String> grades = ['Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
-  final List<String> subjects = ['Mathematics', 'Science', 'English', 'ICT', 'Tamil'];
+  final List<String> grades = ['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+  final List<String> subjects = ['Grade 1 to 5','Mathematics', 'Science', 'English', 'ICT', 'Tamil'];
   final List<String> months = MonthUtils.getAllMonthNames();
 
   @override
@@ -195,7 +195,7 @@ class _PaymentPageState extends State<PaymentPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Class Fee Payment'),
+        title: const Text('පන්ති ගාස්තු ගෙවීම'),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
       ),
@@ -204,7 +204,7 @@ class _PaymentPageState extends State<PaymentPage> {
           if (state is PaymentSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Payment successful! You now have access to the resources.'),
+                content: Text('මුදල් ගෙවීමේ රිසිට්පත යොමුකිරිම සාර්ථකයි, පැය 6ක් ඇතුලත ඔබට අදාළ තොරතුරු නැරබිය හැකියි.'),
                 backgroundColor: Colors.green,
               ),
             );
@@ -233,7 +233,7 @@ class _PaymentPageState extends State<PaymentPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Select Payment Details',
+                            'පහත තොරතුරු තෝරන්න',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -245,7 +245,7 @@ class _PaymentPageState extends State<PaymentPage> {
                           DropdownButtonFormField<String>(
                             value: selectedGrade,
                             decoration: const InputDecoration(
-                              labelText: 'Grade',
+                              labelText: 'පන්තිය',
                               border: OutlineInputBorder(),
                             ),
                             items: grades.map((grade) {
@@ -267,7 +267,7 @@ class _PaymentPageState extends State<PaymentPage> {
                           DropdownButtonFormField<String>(
                             value: selectedSubject,
                             decoration: const InputDecoration(
-                              labelText: 'Subject',
+                              labelText: 'විෂය',
                               border: OutlineInputBorder(),
                             ),
                             items: subjects.map((subject) {
@@ -288,7 +288,7 @@ class _PaymentPageState extends State<PaymentPage> {
                           DropdownButtonFormField<String>(
                             value: selectedMonth,
                             decoration: const InputDecoration(
-                              labelText: 'Month',
+                              labelText: 'මාසය',
                               border: OutlineInputBorder(),
                             ),
                             items: months.map((month) {
@@ -308,7 +308,7 @@ class _PaymentPageState extends State<PaymentPage> {
                           ElevatedButton.icon(
                             onPressed: pickFile,
                             icon: const Icon(Icons.attach_file),
-                            label: const Text('Select Payment Slip (Image or PDF)'),
+                            label: const Text('මුදල් තැම්පත් කල රිසිට්පත තෝරන්න'),
                           ),
                           if (selectedFile != null) ...[
                             const SizedBox(height: 8),
@@ -337,33 +337,25 @@ class _PaymentPageState extends State<PaymentPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Payment Summary',
+                              'මුදල් ගෙවීමේ රිසිට්පත යොමුකිරිම',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 12),
-                            Text('Grade: $selectedGrade'),
-                            Text('Subject: $selectedSubject'),
-                            Text('Period: $selectedMonth ${DateTime.now().year}'),
+                            Text('පන්තිය : $selectedGrade'),
+                            Text('විෂය : $selectedSubject'),
+                            Text('මාසය : $selectedMonth ${DateTime.now().year}'),
                             const SizedBox(height: 8),
                             Text(
-                              'Amount: Rs+ $_calculatedAmount',
+                              'මුදල : Rs+ $_calculatedAmount',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.green,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Access includes:',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const Text('• Video recordings'),
-                            const Text('• Study notes'),
-                            const Text('• Zoom meeting links'),
                           ],
                         ),
                       ),
@@ -396,11 +388,16 @@ class _PaymentPageState extends State<PaymentPage> {
                                 }
                               }
                               
+                              // Extract grade number only (remove "Grade" text)
+                              final gradeNumber = selectedGrade!.replaceAll(RegExp(r'[^0-9]'), '');
+                              
+                              print('🎬 PaymentPage: Creating payment with grade number: $gradeNumber (from: $selectedGrade)');
+                              
                               // Proceed with payment
                               context.read<PaymentBloc>().add(
                                 CreatePaymentRequested(
                                   userId: widget.userId,
-                                  grade: selectedGrade!,
+                                  grade: gradeNumber, // Send only the grade number
                                   subject: selectedSubject!,
                                   month: selectedMonth!,
                                   year: DateTime.now().year,
@@ -438,7 +435,7 @@ class _PaymentPageState extends State<PaymentPage> {
                         : (state is PaymentLoading
                             ? const CircularProgressIndicator(color: Colors.white)
                             : Text(
-                                'You are about to pay Rs+ $_calculatedAmount',
+                                'ඔබගේ ගෙවීම Rs $_calculatedAmount',
                                 style: const TextStyle(fontSize: 18),
                               )),
                   ),

@@ -5,6 +5,7 @@ import '../../domain/usecases/add_video.dart';
 
 abstract class VideoRemoteDataSource {
   Future<List<VideoModel>> getVideos({
+    String? userId,
     String? grade,
     String? subject,
     int? month,
@@ -12,6 +13,7 @@ abstract class VideoRemoteDataSource {
   });
   Future<VideoModel> addVideo(AddVideoParams params);
   Future<List<VideoModel>> getFreeVideos();
+  Future<List<VideoModel>> getFreeVideosByGrade(String grade);
 }
 
 class VideoRemoteDataSourceImpl implements VideoRemoteDataSource {
@@ -23,27 +25,40 @@ class VideoRemoteDataSourceImpl implements VideoRemoteDataSource {
 
   @override
   Future<List<VideoModel>> getVideos({
+    String? userId,
     String? grade,
     String? subject,
     int? month,
     int? year,
   }) async {
     try {
-      developer.log('🔍 Fetching videos from Firestore...', name: 'VideoDataSource');
+      print('🎬 VideoDataSource.getVideos called with parameters:');
+      print('🎬   - userId: $userId');
+      print('🎬   - grade: $grade');
+      print('🎬   - subject: $subject');
+      print('🎬   - month: $month');
+      print('🎬   - year: $year');
+      
+      developer.log('🔍 Fetching videos from Firestore for userId: $userId...', name: 'VideoDataSource');
       
       Query<Map<String, dynamic>> collectionRef = firestore.collection('videos');
+      print('🎬 Starting Firestore query on "videos" collection');
 
       if (grade != null && grade.isNotEmpty) {
         collectionRef = collectionRef.where('grade', isEqualTo: grade);
+        print('🎬 Applied filter: grade = $grade');
       }
       if (subject != null && subject.isNotEmpty) {
         collectionRef = collectionRef.where('subject', isEqualTo: subject);
+        print('🎬 Applied filter: subject = $subject');
       }
       if (month != null) {
         collectionRef = collectionRef.where('month', isEqualTo: month);
+        print('🎬 Applied filter: month = $month');
       }
       if (year != null) {
         collectionRef = collectionRef.where('year', isEqualTo: year);
+        print('🎬 Applied filter: year = $year');
       }
 
       final querySnapshot = await collectionRef.get();
@@ -137,6 +152,31 @@ class VideoRemoteDataSourceImpl implements VideoRemoteDataSource {
     } catch (e) {
       developer.log('❌ Error fetching free videos: $e', name: 'VideoDataSource');
       throw Exception('Failed to fetch free videos: $e');
+    }
+  }
+
+  @override
+  Future<List<VideoModel>> getFreeVideosByGrade(String grade) async {
+    try {
+      developer.log('🔍 Fetching free videos for grade $grade from Firestore...', name: 'VideoDataSource');
+      var querySnapshot = await firestore.collection('videos')
+        .where('accessLevel', isEqualTo: 'free')
+        .where('grade', isEqualTo: grade)
+        .get();
+      developer.log('📊 Found ${querySnapshot.docs.length} free video documents for grade $grade', name: 'VideoDataSource');
+      final videos = querySnapshot.docs.map((doc) {
+        final data = doc.data();
+        developer.log('📹 Free video document ${doc.id}: $data', name: 'VideoDataSource');
+        return VideoModel.fromJson({
+          'id': doc.id,
+          ...data,
+        });
+      }).toList();
+      developer.log('✅ Successfully parsed ${videos.length} free videos for grade $grade', name: 'VideoDataSource');
+      return videos;
+    } catch (e) {
+      developer.log('❌ Error fetching free videos for grade $grade: $e', name: 'VideoDataSource');
+      throw Exception('Failed to fetch free videos for grade $grade: $e');
     }
   }
 } 

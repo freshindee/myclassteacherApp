@@ -33,6 +33,9 @@ class TimetableRepositoryImpl implements TimetableRepository {
           teacher: model.teacher,
           room: model.room,
           description: model.description,
+          index: model.index,
+          time2: model.time2,
+          time3: model.time3,
         )).toList();
 
         developer.log('✅ Successfully converted ${timetables.length} timetable entries', name: 'TimetableRepository');

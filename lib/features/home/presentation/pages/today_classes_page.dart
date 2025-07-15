@@ -14,7 +14,7 @@ class TodayClassesPage extends StatelessWidget {
       create: (context) => sl<TodayClassesBloc>()..add(LoadTodayClasses()),
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Today's Classes"),
+          title: const Text("අද දවසේ පන්ති"),
           backgroundColor: Colors.blue,
           foregroundColor: Colors.white,
         ),
@@ -27,7 +27,7 @@ class TodayClassesPage extends StatelessWidget {
             } else if (state is TodayClassesError) {
               return Center(child: Text('Error: ${state.message}'));
             }
-            return const Center(child: Text('No classes available'));
+            return const Center(child: Text('අද දින පන්ති නොමැත.'));
           },
         ),
       ),
@@ -36,7 +36,7 @@ class TodayClassesPage extends StatelessWidget {
 
   Widget _buildClassList(BuildContext context, List<TodayClass> classes) {
     if (classes.isEmpty) {
-      return const Center(child: Text('No classes for today.'));
+      return const Center(child: Text('අද දින පන්ති නොමැත..'));
     }
     return ListView.builder(
       padding: const EdgeInsets.all(16),

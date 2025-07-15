@@ -13,25 +13,25 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  late TextEditingController _emailController;
+  late TextEditingController _phoneNumberController;
   late TextEditingController _passwordController;
 
   @override
   void initState() {
     super.initState();
-    _emailController = TextEditingController(text: 'indika@gmail.com');
+    _phoneNumberController = TextEditingController(text: '0773771925');
     _passwordController = TextEditingController(text: 'asdf1234');
     
     // Initialize the auth bloc with default values
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AuthBloc>().add(EmailChanged('indika@gmail.com'));
+      context.read<AuthBloc>().add(PhoneNumberChanged('0773771925'));
       context.read<AuthBloc>().add(PasswordChanged('asdf1234'));
     });
   }
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _phoneNumberController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -39,86 +39,198 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.appName)),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: BlocConsumer<AuthBloc, AuthState>(
-          listener: (context, state) {
-            if (state.status == FormzStatus.submissionSuccess) {
-              // Navigate to home page
-              Navigator.of(context).pushReplacementNamed('/home');
-            }
-            if (state.status == FormzStatus.submissionFailure) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.errorMessage ?? 'Authentication Failed')),
-              );
-            }
-          },
-          builder: (context, state) {
-            return SingleChildScrollView(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFff5858),
+              Color(0xFFf09819),
+            ],
+          ),
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  TextField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(
-                      labelText: AppStrings.emailHint,
-                      border: OutlineInputBorder(),
+                  // Logo/Icon
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
-                    onChanged: (email) {
-                      context.read<AuthBloc>().add(
-                        EmailChanged(email),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: AppStrings.passwordHint,
-                      border: OutlineInputBorder(),
+                    padding: const EdgeInsets.all(1),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/images/logo.jpg',
+                        width: 64,
+                        height: 64,
+                        fit: BoxFit.cover,
+                      ),
                     ),
-                    onChanged: (password) {
-                      context.read<AuthBloc>().add(
-                        PasswordChanged(password),
-                      );
-                    },
                   ),
                   const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: state.status == FormzStatus.submissionInProgress
-                          ? null
-                          : () {
-                        context.read<AuthBloc>().add(
-                          const SignInSubmitted(),
-                        );
-                      },
-                      child: state.status == FormzStatus.submissionInProgress
-                          ? const CircularProgressIndicator()
-                          : const Text(AppStrings.login),
+                  // Card
+                  Card(
+                    elevation: 8,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const SignupPage(),
-                        ),
-                      );
-                    },
-                    child: Text(
-                      AppStrings.noAccount + AppStrings.signUp,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            AppStrings.appName,
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFff5858),
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          BlocConsumer<AuthBloc, AuthState>(
+                            listener: (context, state) {
+                              if (state.status == FormzStatus.submissionSuccess) {
+                                Navigator.of(context).pushReplacementNamed('/home');
+                              }
+                              if (state.status == FormzStatus.submissionFailure) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(state.errorMessage ?? 'Authentication Failed')),
+                                );
+                              }
+                            },
+                            builder: (context, state) {
+                              return Column(
+                                children: [
+                                  TextField(
+                                    controller: _phoneNumberController,
+                                    decoration: InputDecoration(
+                                      labelText: AppStrings.phoneNumberHint,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      prefixIcon: const Icon(Icons.phone),
+                                      filled: true,
+                                      fillColor: Colors.grey[100],
+                                    ),
+                                    onChanged: (phoneNumber) {
+                                      context.read<AuthBloc>().add(
+                                        PhoneNumberChanged(phoneNumber),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextField(
+                                    controller: _passwordController,
+                                    obscureText: true,
+                                    decoration: InputDecoration(
+                                      labelText: AppStrings.passwordHint,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      prefixIcon: const Icon(Icons.lock_outline),
+                                      filled: true,
+                                      fillColor: Colors.grey[100],
+                                    ),
+                                    onChanged: (password) {
+                                      context.read<AuthBloc>().add(
+                                        PasswordChanged(password),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 24),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 48,
+                                    child: ElevatedButton(
+                                      onPressed: state.status == FormzStatus.submissionInProgress
+                                          ? null
+                                          : () {
+                                              context.read<AuthBloc>().add(
+                                                const SignInSubmitted(),
+                                              );
+                                            },
+                                      style: ElevatedButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        elevation: 4,
+                                      ),
+                                      child: Ink(
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              Color(0xFFff5858),
+                                              Color(0xFFf09819),
+                                            ],
+                                            begin: Alignment.centerLeft,
+                                            end: Alignment.centerRight,
+                                          ),
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        child: Container(
+                                          alignment: Alignment.center,
+                                          child: state.status == FormzStatus.submissionInProgress
+                                              ? const CircularProgressIndicator(color: Colors.white)
+                                              : const Text(
+                                                  AppStrings.login,
+                                                  style: TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) => const SignupPage(),
+                                        ),
+                                      );
+                                    },
+                                    child: Text(
+                                      AppStrings.noAccount + AppStrings.signUp,
+                                      style: const TextStyle(
+                                        color: Color(0xFFff5858),
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );

@@ -6,6 +6,7 @@ import '../../domain/usecases/sign_up.dart';
 import '../../domain/usecases/sign_out.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases.dart';
+import '../../../../core/services/user_session_service.dart';
 import '../../domain/entities/user.dart';
 part 'auth_event.dart';
 part 'auth_state.dart';
@@ -20,18 +21,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.signUp,
     required this.signOut,
   }) : super(const AuthState()) {
-    on<EmailChanged>(_onEmailChanged);
+    on<PhoneNumberChanged>(_onPhoneNumberChanged);
     on<PasswordChanged>(_onPasswordChanged);
     on<SignInSubmitted>(_onSignInSubmitted);
     on<SignUpSubmitted>(_onSignUpSubmitted);
     on<SignOutSubmitted>(_onSignOutSubmitted);
+    on<CheckAuthStatus>(_onCheckAuthStatus);
   }
 
-  void _onEmailChanged(
-      EmailChanged event,
+  void _onPhoneNumberChanged(
+      PhoneNumberChanged event,
       Emitter<AuthState> emit,
       ) {
-    emit(state.copyWith(email: event.email));
+    emit(state.copyWith(phoneNumber: event.phoneNumber));
   }
 
   void _onPasswordChanged(
@@ -49,17 +51,26 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     emit(state.copyWith(status: FormzStatus.submissionInProgress));
 
-    final result = await signIn(state.email, state.password);
+    final result = await signIn(state.phoneNumber, state.password);
 
-    result.fold(
-          (failure) => emit(state.copyWith(
-        status: FormzStatus.submissionFailure,
-        errorMessage: failure.message,
-      )),
-          (user) => emit(state.copyWith(
-        status: FormzStatus.submissionSuccess,
-        user: user,
-      )),
+    await result.fold(
+          (failure) async {
+        emit(state.copyWith(
+          status: FormzStatus.submissionFailure,
+          errorMessage: failure.message,
+        ));
+      },
+          (user) async {
+        // Save user session
+        print('🔐 AuthBloc: Sign in successful, saving user session');
+        print('🔐   - userId: ${user.userId}');
+        print('🔐   - phoneNumber: ${user.phoneNumber}');
+        await UserSessionService.saveUserSession(user);
+        emit(state.copyWith(
+          status: FormzStatus.submissionSuccess,
+          user: user,
+        ));
+      },
     );
   }
 
@@ -71,17 +82,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     emit(state.copyWith(status: FormzStatus.submissionInProgress));
 
-    final result = await signUp(state.email, state.password);
+    final result = await signUp(state.phoneNumber, state.password);
 
-    result.fold(
-          (failure) => emit(state.copyWith(
-        status: FormzStatus.submissionFailure,
-        errorMessage: failure.message,
-      )),
-          (user) => emit(state.copyWith(
-        status: FormzStatus.submissionSuccess,
-        user: user,
-      )),
+    await result.fold(
+          (failure) async {
+        emit(state.copyWith(
+          status: FormzStatus.submissionFailure,
+          errorMessage: failure.message,
+        ));
+      },
+          (user) async {
+        // Save user session
+        await UserSessionService.saveUserSession(user);
+        emit(state.copyWith(
+          status: FormzStatus.submissionSuccess,
+          user: user,
+        ));
+      },
     );
   }
 
@@ -95,15 +112,37 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     final result = await signOut(const NoParams());
 
-    result.fold(
-          (failure) => emit(state.copyWith(
-        status: FormzStatus.submissionFailure,
-        errorMessage: failure.message,
-      )),
-          (_) => emit(state.copyWith(
-        status: FormzStatus.submissionSuccess,
-        user: null,
-      )),
+    await result.fold(
+          (failure) async {
+        emit(state.copyWith(
+          status: FormzStatus.submissionFailure,
+          errorMessage: failure.message,
+          isLogout: false,
+        ));
+      },
+          (_) async {
+        // Clear user session
+        await UserSessionService.clearUserSession();
+        emit(const AuthState(isLogout: true));
+      },
     );
+  }
+
+  Future<void> _onCheckAuthStatus(
+      CheckAuthStatus event,
+      Emitter<AuthState> emit,
+      ) async {
+    final user = await UserSessionService.getCurrentUser();
+    if (user != null) {
+      emit(state.copyWith(
+        status: FormzStatus.submissionSuccess,
+        user: user,
+      ));
+    } else {
+      emit(state.copyWith(
+        status: FormzStatus.pure,
+        user: null,
+      ));
+    }
   }
 }

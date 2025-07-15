@@ -58,6 +58,8 @@ import 'features/home/data/repositories/teacher_repository_impl.dart';
 import 'features/home/data/datasources/teacher_remote_data_source.dart';
 import 'features/home/presentation/pages/teachers_bloc.dart';
 import 'features/home/presentation/pages/old_videos_bloc.dart';
+import 'features/home/domain/usecases/get_free_videos_by_grade.dart';
+import 'features/home/domain/usecases/get_notes_by_grade.dart';
 
 final sl = GetIt.instance;
 
@@ -73,6 +75,7 @@ void init() {
   sl.registerFactory(
     () => NotesAssignmentsBloc(
       getNotes: sl(),
+      getNotesByGrade: sl(),
     ),
   );
   sl.registerFactory(
@@ -95,6 +98,7 @@ void init() {
   sl.registerFactory(
     () => FreeVideosBloc(
       getFreeVideos: sl(),
+      getFreeVideosByGrade: sl(),
     ),
   );
   sl.registerFactory(
@@ -130,6 +134,7 @@ void init() {
   sl.registerLazySingleton(() => SignOut(sl()));
   sl.registerLazySingleton(() => GetVideos(sl()));
   sl.registerLazySingleton(() => GetNotes(sl()));
+  sl.registerLazySingleton(() => GetNotesByGrade(sl()));
   sl.registerLazySingleton(() => GetAdvertisements(sl()));
   sl.registerLazySingleton(() => GetContacts(sl()));
   sl.registerLazySingleton(() => GetTimetableByGrade(sl()));
@@ -141,6 +146,7 @@ void init() {
   sl.registerLazySingleton(() => GetUserSubscriptions(sl()));
   sl.registerLazySingleton(() => GetUserPayments(sl()));
   sl.registerLazySingleton(() => GetFreeVideos(sl()));
+  sl.registerLazySingleton(() => GetFreeVideosByGrade(sl()));
   sl.registerLazySingleton(() => GetTeachers(sl()));
 
   // Repositories

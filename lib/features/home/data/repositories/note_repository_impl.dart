@@ -34,4 +34,25 @@ class NoteRepositoryImpl implements NoteRepository {
       return Left(ServerFailure('No internet connection'));
     }
   }
+
+  @override
+  Future<Either<Failure, List<Note>>> getNotesByGrade(String grade) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final noteModels = await remoteDataSource.getNotesByGrade(grade);
+        final List<Note> notes = noteModels.map((model) => Note(
+          id: model.id,
+          grade: model.grade,
+          title: model.title,
+          description: model.description,
+          pdfUrl: model.pdfUrl,
+        )).toList();
+        return Right(notes);
+      } catch (e) {
+        return Left(ServerFailure(e.toString()));
+      }
+    } else {
+      return Left(ServerFailure('No internet connection'));
+    }
+  }
 } 

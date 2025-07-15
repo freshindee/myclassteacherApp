@@ -10,26 +10,37 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<Either<Failure, User>> signIn(String email, String password) async {
+  Future<Either<Failure, User>> signIn(String phoneNumber, String password) async {
     try {
-      final userModel = await remoteDataSource.signIn(email, password);
-      return Right(User(
-        id: userModel.id,
-        email: userModel.email,
+      print('🔐 AuthRepository: Calling remote data source for sign in');
+      final userModel = await remoteDataSource.signIn(phoneNumber, password);
+      
+      print('🔐 AuthRepository: Received user model from data source:');
+      print('🔐   - userId: ${userModel.userId}');
+      print('🔐   - phoneNumber: ${userModel.phoneNumber}');
+      
+      final user = User(
+        userId: userModel.userId,
+        phoneNumber: userModel.phoneNumber,
         password: userModel.password,
-      ));
+      );
+      
+      print('🔐 AuthRepository: Created user entity with userId: ${user.userId}');
+      
+      return Right(user);
     } catch (e) {
+      print('❌ AuthRepository: Sign in failed: $e');
       return Left(ServerFailure(e.toString()));
     }
   }
 
   @override
-  Future<Either<Failure, User>> signUp(String email, String password) async {
+  Future<Either<Failure, User>> signUp(String phoneNumber, String password) async {
     try {
-      final userModel = await remoteDataSource.signUp(email, password);
+      final userModel = await remoteDataSource.signUp(phoneNumber, password);
       return Right(User(
-        id: userModel.id,
-        email: userModel.email,
+        userId: userModel.userId,
+        phoneNumber: userModel.phoneNumber,
         password: userModel.password,
       ));
     } catch (e) {

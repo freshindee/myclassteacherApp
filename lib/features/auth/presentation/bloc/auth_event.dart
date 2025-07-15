@@ -7,13 +7,13 @@ abstract class AuthEvent extends Equatable {
   List<Object> get props => [];
 }
 
-class EmailChanged extends AuthEvent {
-  final String email;
+class PhoneNumberChanged extends AuthEvent {
+  final String phoneNumber;
 
-  const EmailChanged(this.email);
+  const PhoneNumberChanged(this.phoneNumber);
 
   @override
-  List<Object> get props => [email];
+  List<Object> get props => [phoneNumber];
 }
 
 class PasswordChanged extends AuthEvent {
@@ -35,4 +35,8 @@ class SignUpSubmitted extends AuthEvent {
 
 class SignOutSubmitted extends AuthEvent {
   const SignOutSubmitted();
+}
+
+class CheckAuthStatus extends AuthEvent {
+  const CheckAuthStatus();
 }
