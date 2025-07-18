@@ -33,6 +33,18 @@ class TimetableRemoteDataSourceImpl implements TimetableRemoteDataSource {
         });
       }).toList();
       
+      // Log displayId list before sorting
+      developer.log('displayId list before sorting: ' + timetables.map((t) => t.displayId).toList().toString(), name: 'TimetableDataSource');
+      // Sort by displayId (nulls last)
+      timetables.sort((a, b) {
+        if (a.displayId == null && b.displayId == null) return 0;
+        if (a.displayId == null) return 1;
+        if (b.displayId == null) return -1;
+        return a.displayId!.compareTo(b.displayId!);
+      });
+      // Log displayId list after sorting
+      developer.log('displayId list after sorting: ' + timetables.map((t) => t.displayId).toList().toString(), name: 'TimetableDataSource');
+      
       developer.log('✅ Successfully parsed ${timetables.length} timetable entries', name: 'TimetableDataSource');
       return timetables;
     } catch (e) {

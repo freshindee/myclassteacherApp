@@ -16,6 +16,7 @@ import 'teachers_page.dart';
 import 'view_old_videos_page.dart';
 import 'old_videos_bloc.dart';
 import 'free_videos_bloc.dart';
+import 'grades_list_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -136,35 +137,11 @@ class HomePage extends StatelessWidget {
                       () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const SchedulePage(),
+                          builder: (context) => const GradesListPage(),
                         ),
                       ),
                     ),
-                    _buildMenuCard(
-                      context,
-                      'Notes & Assignments',
-                      Icons.note,
-                      Colors.orange,
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const NotesAssignmentsPage(),
-                        ),
-                      ),
-                    ),
-                    _buildMenuCard(
-                      context,
-                      'Our Teachers',
-                      Icons.people,
-                      Colors.indigo,
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const TeachersPage(),
-                        ),
-                      ),
-                    ),
-                    _buildMenuCard(
+                     _buildMenuCard(
                       context,
                       'Pay Fees',
                       Icons.payment,
@@ -182,6 +159,30 @@ class HomePage extends StatelessWidget {
                           ),
                         );
                       },
+                    ),
+                    _buildMenuCard(
+                      context,
+                      'Our Teachers',
+                      Icons.people,
+                      Colors.indigo,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const TeachersPage(),
+                        ),
+                      ),
+                    ),
+                   _buildMenuCard(
+                      context,
+                      'Notes & Assignments',
+                      Icons.note,
+                      Colors.orange,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const NotesAssignmentsPage(),
+                        ),
+                      ),
                     ),
                     _buildMenuCard(
                       context,

@@ -50,18 +50,24 @@ class TodayClassesPage extends StatelessWidget {
 
   Widget _buildClassCard(BuildContext context, TodayClass todayClass) {
     String? teacherImage;
-    switch (todayClass.subject.toLowerCase()) {
-      case 'english':
+    switch (todayClass.teacherId) {
+      case 1:
         teacherImage = 'assets/images/aruna2.jpeg';
         break;
-      case 'mathematics':
+      case 6:
+        teacherImage = 'assets/images/samu2.jpeg';
+        break;
+      case 4:
         teacherImage = 'assets/images/mahesh.jpeg';
         break;
-      case 'science':
+      case 2:
         teacherImage = 'assets/images/sajith.jpeg';
         break;
-      case 'ict':
-        teacherImage = 'assets/images/indika.jpeg';
+      case 5:
+        teacherImage = 'assets/images/indika.png';
+        break;
+      case 3:
+        teacherImage = 'assets/images/mana.jpeg';
         break;
     }
     return Card(

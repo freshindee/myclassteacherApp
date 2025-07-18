@@ -44,6 +44,9 @@ class VideoRemoteDataSourceImpl implements VideoRemoteDataSource {
       Query<Map<String, dynamic>> collectionRef = firestore.collection('videos');
       print('🎬 Starting Firestore query on "videos" collection');
 
+      // Only get paid videos for class videos page
+      collectionRef = collectionRef.where('accessLevel', isEqualTo: 'paid');
+
       if (grade != null && grade.isNotEmpty) {
         collectionRef = collectionRef.where('grade', isEqualTo: grade);
         print('🎬 Applied filter: grade = $grade');

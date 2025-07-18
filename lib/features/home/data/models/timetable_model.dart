@@ -8,11 +8,13 @@ class TimetableModel extends Equatable {
   final String day;
   final String time;
   final String? teacher;
+  final int? teacherId;
   final String? room;
   final String? description;
   final int? index;
   final String? time2;
   final String? time3;
+  final int? displayId;
 
   const TimetableModel({
     required this.id,
@@ -21,11 +23,13 @@ class TimetableModel extends Equatable {
     required this.day,
     required this.time,
     this.teacher,
+    this.teacherId,
     this.room,
     this.description,
     this.index,
     this.time2,
     this.time3,
+    this.displayId,
   });
 
   @override
@@ -35,7 +39,7 @@ class TimetableModel extends Equatable {
         subject,
         day,
         time,
-        teacher,
+        teacher,teacherId,
         room,
         description,
         index,
@@ -51,11 +55,15 @@ class TimetableModel extends Equatable {
       day: json['day'] as String? ?? '',
       time: json['time'] as String? ?? '',
       teacher: json['teacher'] as String?,
+      teacherId: json['teacher_id'] as int?,
       room: json['room'] as String?,
       description: json['description'] as String?,
       index: json['index'] is int ? json['index'] : int.tryParse(json['index']?.toString() ?? ''),
       time2: json['time2'] as String?,
       time3: json['time3'] as String?,
+      displayId: json['display_id'] is int
+          ? json['display_id']
+          : int.tryParse(json['display_id']?.toString() ?? ''),
     );
   }
 
@@ -67,11 +75,13 @@ class TimetableModel extends Equatable {
       'day': day,
       'time': time,
       'teacher': teacher,
+      'teacherId': teacherId,
       'room': room,
       'description': description,
       'index': index,
       'time2': time2,
       'time3': time3,
+      'display_id': displayId,
     };
   }
 
@@ -83,11 +93,13 @@ class TimetableModel extends Equatable {
       day: day,
       time: time,
       teacher: teacher,
+      teacherId: teacherId,
       room: room,
       description: description,
       index: index,
       time2: time2,
       time3: time3,
+      displayId: displayId,
     );
   }
 } 

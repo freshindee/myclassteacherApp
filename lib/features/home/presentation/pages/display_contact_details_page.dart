@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/contact.dart';
 import 'contact_bloc.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class DisplayContactDetailsPage extends StatelessWidget {
   const DisplayContactDetailsPage({super.key});
@@ -18,53 +19,139 @@ class DisplayContactDetailsPage extends StatelessWidget {
           backgroundColor: Colors.blue,
           foregroundColor: Colors.white,
         ),
-        body: BlocBuilder<ContactBloc, ContactState>(
-          builder: (context, state) {
-            if (state is ContactInitial) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (state is ContactLoading) {
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Loading contact information...'),
-                  ],
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // WhatsApp group and call section
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(24),
+                  bottomRight: Radius.circular(24),
                 ),
-              );
-            } else if (state is ContactLoaded) {
-              return _buildContactList(context, state.contacts);
-            } else if (state is ContactError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text('Error: ${state.message}'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.read<ContactBloc>().add(LoadContacts());
-                      },
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              );
-            }
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.contact_page, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('No contact information available'),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
                 ],
               ),
-            );
-          },
+              child: Column(
+                children: [
+                  Text(
+                    'Join our WhatsApp Group',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green[800],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green[700],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const FaIcon(FontAwesomeIcons.whatsapp, size: 28),
+                    label: const Text('Join WhatsApp Group', style: TextStyle(fontSize: 16)),
+                    onPressed: () async {
+                      const url = 'https://chat.whatsapp.com/IDFUtbhTWeZDAywAeCVJIF';
+                      if (await canLaunchUrl(Uri.parse(url))) {
+                        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Call Us Directly',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.blue[800],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue[700],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.phone, size: 26),
+                    label: const Text('Call 077123456', style: TextStyle(fontSize: 16)),
+                    onPressed: () async {
+                      const phone = 'tel:077123456';
+                      if (await canLaunchUrl(Uri.parse(phone))) {
+                        await launchUrl(Uri.parse(phone));
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            // Expanded contact list
+            Expanded(
+              child: BlocBuilder<ContactBloc, ContactState>(
+                builder: (context, state) {
+                  if (state is ContactInitial) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (state is ContactLoading) {
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('Loading contact information...'),
+                        ],
+                      ),
+                    );
+                  } else if (state is ContactLoaded) {
+                    return _buildContactList(context, state.contacts);
+                  } else if (state is ContactError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline, size: 64, color: Colors.red),
+                          SizedBox(height: 16),
+                          Text('Error:  [${state.message}]'),
+                          SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () {
+                              context.read<ContactBloc>().add(LoadContacts());
+                            },
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.contact_page, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text('No contact information available'),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () {

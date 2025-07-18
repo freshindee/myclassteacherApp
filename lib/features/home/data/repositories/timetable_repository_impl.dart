@@ -31,6 +31,7 @@ class TimetableRepositoryImpl implements TimetableRepository {
           day: model.day,
           time: model.time,
           teacher: model.teacher,
+          teacherId: model.teacherId,
           room: model.room,
           description: model.description,
           index: model.index,

@@ -349,7 +349,7 @@ class _PaymentPageState extends State<PaymentPage> {
                             Text('මාසය : $selectedMonth ${DateTime.now().year}'),
                             const SizedBox(height: 8),
                             Text(
-                              'මුදල : Rs+ $_calculatedAmount',
+                              'මුදල : Rs. $_calculatedAmount',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -435,10 +435,22 @@ class _PaymentPageState extends State<PaymentPage> {
                         : (state is PaymentLoading
                             ? const CircularProgressIndicator(color: Colors.white)
                             : Text(
-                                'ඔබගේ ගෙවීම Rs $_calculatedAmount',
+                                'ඔබගේ ගෙවීම : Rs. $_calculatedAmount',
                                 style: const TextStyle(fontSize: 18),
                               )),
                   ),
+                  // Add spacing before the image
+                  const SizedBox(height: 32),
+                  // Display the account image at the bottom
+                  Center(
+                    child: Image.asset(
+                      'assets/images/accounts_sajith.jpeg',
+                      fit: BoxFit.contain,
+                      width: 300,
+                      // height: 200, // Optionally set a max height
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
