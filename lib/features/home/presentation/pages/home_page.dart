@@ -20,9 +20,16 @@ import 'grades_list_page.dart';
 import 'term_test_papers_page.dart';
 import '../bloc/term_test_paper_bloc.dart';
 import '../../domain/usecases/get_term_test_papers.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
+
+  static const List<String> imageUrls = [
+    'https://firebasestorage.googleapis.com/v0/b/tuition-class-management-app.firebasestorage.app/o/images%2Fs1.jpg?alt=media&token=2af50d6a-47cb-45ce-9fb4-10cd8a2693c5',
+    'https://firebasestorage.googleapis.com/v0/b/tuition-class-management-app.firebasestorage.app/o/images%2Fs2.jpg?alt=media&token=f2773fa3-620f-4542-8fd6-c397ad24f5aa',
+    'https://firebasestorage.googleapis.com/v0/b/tuition-class-management-app.firebasestorage.app/o/images%2Fs3.jpg?alt=media&token=b550627d-4a7c-43ff-a13b-c964a5df80ee',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -47,46 +54,47 @@ class HomePage extends StatelessWidget {
           }
         },
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(0),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Welcome Card
-                Card(
-                  color: Colors.blue.shade50,
-                  child: Padding(
-                    padding: const EdgeInsets.all(6.0),
-                    child: Column(
-                      children: [
-                        Image.asset(
-                          'assets/images/logo.jpg',
-                          height: 100,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Welcome to Schoooly App',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Access your study materials and manage your subscriptions',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 14,color: Colors.green),
-                        ),
-                      ],
-                    ),
+                  // Main Menu Grid
+                CarouselSlider(
+                  options: CarouselOptions(
+                    height: 180,
+                    autoPlay: true,
+                    enlargeCenterPage: true,
+                    viewportFraction: 1.0,
+                    aspectRatio: 16/9,
+                    autoPlayInterval: const Duration(seconds: 4),
                   ),
+                  items: imageUrls.map((url) {
+                    return Builder(
+                      builder: (BuildContext context) {
+                        return Image.network(
+                          url,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return Center(child: CircularProgressIndicator(value: progress.expectedTotalBytes != null ? progress.cumulativeBytesLoaded / (progress.expectedTotalBytes ?? 1) : null));
+                          },
+                          errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image, size: 64, color: Colors.grey)),
+                        );
+                      },
+                    );
+                  }).toList(),
                 ),
+
 
                 const SizedBox(height: 20),
 
                 
                 // Main Menu Grid
                 GridView.count(
+                  padding: const EdgeInsets.all(16.0),
                   crossAxisCount: 2,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
