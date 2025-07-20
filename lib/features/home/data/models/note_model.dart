@@ -15,7 +15,7 @@ class NoteModel extends Note {
       grade: json['grade'] as String? ?? '',
       title: json['title'] as String? ?? '',
       description: json['description'] as String? ?? '',
-      pdfUrl: json['url'] as String? ?? '',
+      pdfUrl: json['pdfUrl'] as String? ?? '',
     );
   }
 

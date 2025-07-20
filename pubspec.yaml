@@ -52,6 +52,7 @@ dependencies:
   youtube_player_iframe: ^4.0.4
   shared_preferences: ^2.2.2
   font_awesome_flutter: ^10.8.0
+  syncfusion_flutter_pdfviewer: ^30.1.40
 
 
 dev_dependencies:

@@ -60,6 +60,10 @@ import 'features/home/presentation/pages/teachers_bloc.dart';
 import 'features/home/presentation/pages/old_videos_bloc.dart';
 import 'features/home/domain/usecases/get_free_videos_by_grade.dart';
 import 'features/home/domain/usecases/get_notes_by_grade.dart';
+import 'features/home/data/datasources/term_test_paper_remote_data_source.dart';
+import 'features/home/data/repositories/term_test_paper_repository_impl.dart';
+import 'features/home/domain/repositories/term_test_paper_repository.dart';
+import 'features/home/domain/usecases/get_term_test_papers.dart';
 
 final sl = GetIt.instance;
 
@@ -148,6 +152,7 @@ void init() {
   sl.registerLazySingleton(() => GetFreeVideos(sl()));
   sl.registerLazySingleton(() => GetFreeVideosByGrade(sl()));
   sl.registerLazySingleton(() => GetTeachers(sl()));
+  sl.registerLazySingleton(() => GetTermTestPapers(sl()));
 
   // Repositories
   sl.registerLazySingleton<AuthRepository>(
@@ -203,6 +208,9 @@ void init() {
       networkInfo: sl(),
     ),
   );
+  sl.registerLazySingleton<TermTestPaperRepository>(
+    () => TermTestPaperRepositoryImpl(remoteDataSource: sl()),
+  );
 
   // Data sources
   sl.registerLazySingleton<AuthRemoteDataSource>(
@@ -231,6 +239,9 @@ void init() {
   );
   sl.registerLazySingleton<TimetableRemoteDataSource>(
     () => TimetableRemoteDataSourceImpl(firestore: sl()),
+  );
+  sl.registerLazySingleton<TermTestPaperRemoteDataSource>(
+    () => TermTestPaperRemoteDataSourceImpl(firestore: sl()),
   );
 
   // Core

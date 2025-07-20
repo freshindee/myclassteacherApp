@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:developer' as developer;
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases.dart';
@@ -166,8 +167,6 @@ class _NotesAssignmentsPageState extends State<NotesAssignmentsPage> {
   }
 
   Future<void> _openPdf(BuildContext context, String pdfUrl) async {
-    developer.log('PDF URL: $pdfUrl', name: 'NotesAssignmentsPage');
-    
     if (pdfUrl.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -179,30 +178,17 @@ class _NotesAssignmentsPageState extends State<NotesAssignmentsPage> {
       }
       return;
     }
-
-    try {
-      final Uri url = Uri.parse(pdfUrl);
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Could not open PDF'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error opening PDF: $e'),
-            backgroundColor: Colors.red,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: const Text('PDF Viewer'),
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
           ),
-        );
-      }
-    }
+          body: SfPdfViewer.network(pdfUrl),
+        ),
+      ),
+    );
   }
 } 

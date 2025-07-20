@@ -149,19 +149,19 @@ class ClassVideosBloc extends Bloc<ClassVideosEvent, ClassVideosState> {
 
               // 4. Combine all free videos and the paid videos found above into a final list
               print('🎬 Combining free and paid videos:');
-              final freeVideos = currentMonthVideos.where((v) => v.accessLevel == 'free').toList();
-              print('🎬 Free videos for current month: ${freeVideos.length}');
-              for (var free in freeVideos) {
-                print('🎬   - Free video: ${free.title} (grade=${free.grade}, subject=${free.subject})');
-              }
+            //  final freeVideos = currentMonthVideos.where((v) => v.accessLevel == 'free').toList();
+            //  print('🎬 Free videos for current month: ${freeVideos.length}');
+            //  for (var free in freeVideos) {
+            //    print('🎬   - Free video: ${free.title} (grade=${free.grade}, subject=${free.subject})');
+           //   }
               
-              final allVideos = [...freeVideos, ...paidVideos];
-              print('🎬 Final video list to display: ${allVideos.length} videos');
-              print('🎬   - Free videos: ${freeVideos.length}');
-              print('🎬   - Paid videos: ${paidVideos.length}');
+              // final allVideos = [...freeVideos, ...paidVideos];
+              // print('🎬 Final video list to display: ${allVideos.length} videos');
+              // print('🎬   - Free videos: ${freeVideos.length}');
+              // print('🎬   - Paid videos: ${paidVideos.length}');
 
               // 5. Display this final list in the class videos page
-              emit(ClassVideosLoaded(videos: allVideos));
+              emit(ClassVideosLoaded(videos: paidVideos));
             },
           );
         },

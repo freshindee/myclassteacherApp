@@ -451,6 +451,56 @@ class _PaymentPageState extends State<PaymentPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  // Display the account image at the bottom
+                  Center(
+                    child: Image.asset(
+                      'assets/images/acc_arun.jpeg',
+                      fit: BoxFit.contain,
+                      width: 300,
+                      // height: 200, // Optionally set a max height
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Display the account image at the bottom
+                  Center(
+                    child: Image.asset(
+                      'assets/images/acc_mahe.jpeg',
+                      fit: BoxFit.contain,
+                      width: 300,
+                      // height: 200, // Optionally set a max dfgheight
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Display the account image at the bottom
+                  Center(
+                    child: Image.asset(
+                      'assets/images/acc_mana.jpeg',
+                      fit: BoxFit.contain,
+                      width: 300,
+                      // height: 200, // Optionally set a max height
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Display the account image at the bottom
+                  Center(
+                    child: Image.asset(
+                      'assets/images/acc_indi.jpeg',
+                      fit: BoxFit.contain,
+                      width: 300,
+                      // height: 200, // Optionally set a max height
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Display the account image at the bottom
+                  Center(
+                    child: Image.asset(
+                      'assets/images/acc_samu.jpeg',
+                      fit: BoxFit.contain,
+                      width: 300,
+                      // height: 200, // Optionally set a max height
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),

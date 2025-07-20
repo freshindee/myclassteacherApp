@@ -17,6 +17,9 @@ import 'view_old_videos_page.dart';
 import 'old_videos_bloc.dart';
 import 'free_videos_bloc.dart';
 import 'grades_list_page.dart';
+import 'term_test_papers_page.dart';
+import '../bloc/term_test_paper_bloc.dart';
+import '../../domain/usecases/get_term_test_papers.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -184,6 +187,21 @@ class HomePage extends StatelessWidget {
                         ),
                       ),
                     ),
+                   _buildMenuCard(
+                     context,
+                     'Term Test Papers',
+                     Icons.description,
+                     Colors.deepPurple,
+                     () => Navigator.push(
+                       context,
+                       MaterialPageRoute(
+                         builder: (context) => BlocProvider(
+                           create: (_) => TermTestPaperBloc(getTermTestPapers: sl<GetTermTestPapers>())..add(FetchTermTestPapers()),
+                           child: const TermTestPapersPage(),
+                         ),
+                       ),
+                     ),
+                   ),
                     _buildMenuCard(
                       context,
                       'Contact Us',
