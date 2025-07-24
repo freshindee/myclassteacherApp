@@ -10,9 +10,11 @@ abstract class ClassVideosEvent extends Equatable {
 class FetchClassVideos extends ClassVideosEvent {
   final String userId;
   final String? grade;
+  final String? subject;
+  final List<dynamic> payments;
 
-  const FetchClassVideos({required this.userId, this.grade});
+  const FetchClassVideos({required this.userId, this.grade, this.subject, required this.payments});
 
   @override
-  List<Object> get props => [userId, grade ?? ''];
+  List<Object> get props => [userId, grade ?? '', subject ?? '', payments];
 } 

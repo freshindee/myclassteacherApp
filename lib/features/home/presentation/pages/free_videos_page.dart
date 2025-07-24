@@ -144,18 +144,13 @@ class _FreeVideosPageState extends State<FreeVideosPage> {
         ),
       );
     }
-    return RefreshIndicator(
-      onRefresh: () async {
-        context.read<FreeVideosBloc>().add(LoadFreeVideos());
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: videos.length,
+      itemBuilder: (context, index) {
+        final video = videos[index];
+        return _buildVideoCard(context, video);
       },
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: videos.length,
-        itemBuilder: (context, index) {
-          final video = videos[index];
-          return _buildVideoCard(context, video);
-        },
-      ),
     );
   }
 

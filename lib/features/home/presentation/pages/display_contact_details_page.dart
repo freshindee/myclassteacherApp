@@ -43,7 +43,7 @@ class DisplayContactDetailsPage extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    'Join our WhatsApp Group',
+                    'පන්ති පිළිබද ගැටළුවක් ඇත්නම් දැනුම් දෙන්න.',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -61,7 +61,7 @@ class DisplayContactDetailsPage extends StatelessWidget {
                       ),
                     ),
                     icon: const FaIcon(FontAwesomeIcons.whatsapp, size: 28),
-                    label: const Text('Join WhatsApp Group', style: TextStyle(fontSize: 16)),
+                    label: const Text('WhatsApp', style: TextStyle(fontSize: 16)),
                     onPressed: () async {
                       const url = 'https://chat.whatsapp.com/IDFUtbhTWeZDAywAeCVJIF';
                       if (await canLaunchUrl(Uri.parse(url))) {
@@ -71,7 +71,7 @@ class DisplayContactDetailsPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'Call Us Directly',
+                    'අපිට කතාකරන්න',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -89,9 +89,9 @@ class DisplayContactDetailsPage extends StatelessWidget {
                       ),
                     ),
                     icon: const Icon(Icons.phone, size: 26),
-                    label: const Text('Call 077123456', style: TextStyle(fontSize: 16)),
+                    label: const Text('Call 0777316215', style: TextStyle(fontSize: 16)),
                     onPressed: () async {
-                      const phone = 'tel:077123456';
+                      const phone = 'tel:0777316215';
                       if (await canLaunchUrl(Uri.parse(phone))) {
                         await launchUrl(Uri.parse(phone));
                       }
@@ -153,14 +153,6 @@ class DisplayContactDetailsPage extends StatelessWidget {
             ),
           ],
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            context.read<ContactBloc>().add(LoadContacts());
-          },
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
-          child: const Icon(Icons.refresh),
-        ),
       ),
     );
   }
@@ -195,6 +187,7 @@ class DisplayContactDetailsPage extends StatelessWidget {
   }
 
   Widget _buildContactCard(BuildContext context, Contact contact) {
+    print('Contact debug: id=${contact.id}, name=${contact.name}, youtubeLink=${contact.youtubeLink}, facebookLink=${contact.facebookLink}, whatsappLink=${contact.whatsappLink}');
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 4,
@@ -271,9 +264,67 @@ class DisplayContactDetailsPage extends StatelessWidget {
             if (contact.email != null && contact.email!.isNotEmpty)
               _buildContactInfo(Icons.email, 'Email', contact.email!, () => _launchEmail(contact.email!)),
             if (contact.phone1 != null && contact.phone1!.isNotEmpty)
-              _buildContactInfo(Icons.phone, 'Phone 1', contact.phone1!, () => _launchPhone(contact.phone1!)),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.phone, size: 24, color: Colors.green[700]),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => _launchPhone(contact.phone1!),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.green[50],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            contact.phone1!,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             if (contact.phone2 != null && contact.phone2!.isNotEmpty)
-              _buildContactInfo(Icons.phone, 'Phone 2', contact.phone2!, () => _launchPhone(contact.phone2!)),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.phone, size: 24, color: Colors.blue[700]),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => _launchPhone(contact.phone2!),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            contact.phone2!,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             if (contact.address != null && contact.address!.isNotEmpty)
               _buildContactInfo(Icons.location_on, 'Address', contact.address!, null),
             
@@ -283,7 +334,7 @@ class DisplayContactDetailsPage extends StatelessWidget {
             const SizedBox(height: 16),
             
             // Social Media Links
-            if (_hasSocialMedia(contact)) ...[
+            if (_hasSocialMedia(contact) || contact.youtubeLink != null || contact.facebookLink != null || contact.whatsappLink != null) ...[
               const Text(
                 'Follow Us',
                 style: TextStyle(
@@ -302,6 +353,24 @@ class DisplayContactDetailsPage extends StatelessWidget {
                     _buildSocialButton(Icons.flutter_dash, Colors.lightBlue[400]!, () => _launchUrl(contact.twitter!)),
                   if (contact.linkedin != null && contact.linkedin!.isNotEmpty)
                     _buildSocialButton(Icons.work, Colors.blue[700]!, () => _launchUrl(contact.linkedin!)),
+                  if (contact.youtubeLink != null && contact.youtubeLink!.isNotEmpty)
+                    _buildSocialButton(
+                      FontAwesomeIcons.youtube,
+                      Colors.red,
+                      () => _launchUrl(contact.youtubeLink!),
+                    ),
+                  if (contact.facebookLink != null && contact.facebookLink!.isNotEmpty)
+                    _buildSocialButton(
+                      FontAwesomeIcons.facebook,
+                      Colors.blue,
+                      () => _launchUrl(contact.facebookLink!),
+                    ),
+                  if (contact.whatsappLink != null && contact.whatsappLink!.isNotEmpty)
+                    _buildSocialButton(
+                      FontAwesomeIcons.whatsapp,
+                      Colors.green,
+                      () => _launchUrl(contact.whatsappLink!),
+                    ),
                 ],
               ),
             ],

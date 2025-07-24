@@ -327,41 +327,6 @@ class _PaymentPageState extends State<PaymentPage> {
                   
                   const SizedBox(height: 20),
                   
-                  // Payment Summary Card
-                  if (selectedGrade != null && selectedSubject != null && selectedMonth != null)
-                    Card(
-                      color: Colors.blue.shade50,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'මුදල් ගෙවීමේ රිසිට්පත යොමුකිරිම',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text('පන්තිය : $selectedGrade'),
-                            Text('විෂය : $selectedSubject'),
-                            Text('මාසය : $selectedMonth ${DateTime.now().year}'),
-                            const SizedBox(height: 8),
-                            Text(
-                              'මුදල : Rs. $_calculatedAmount',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  
-                  const SizedBox(height: 20),
                   
                   // Pay Button
                   ElevatedButton(
@@ -439,6 +404,43 @@ class _PaymentPageState extends State<PaymentPage> {
                                 style: const TextStyle(fontSize: 18),
                               )),
                   ),
+
+
+                    // Payment Summary Card
+                  if (selectedGrade != null && selectedSubject != null && selectedMonth != null)
+                    Card(
+                      color: Colors.blue.shade50,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'මුදල් ගෙවීමේ රිසිට්පත යොමුකිරිම',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text('පන්තිය : $selectedGrade'),
+                            Text('විෂය : $selectedSubject'),
+                            Text('මාසය : $selectedMonth ${DateTime.now().year}'),
+                            const SizedBox(height: 8),
+                            Text(
+                              'මුදල : Rs. $_calculatedAmount',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                           
+
                   // Add spacing before the image
                   const SizedBox(height: 32),
                   // Display the account image at the bottom

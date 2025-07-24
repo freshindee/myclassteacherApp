@@ -26,9 +26,10 @@ class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   static const List<String> imageUrls = [
-    'https://firebasestorage.googleapis.com/v0/b/tuition-class-management-app.firebasestorage.app/o/images%2Fs1.jpg?alt=media&token=2af50d6a-47cb-45ce-9fb4-10cd8a2693c5',
-    'https://firebasestorage.googleapis.com/v0/b/tuition-class-management-app.firebasestorage.app/o/images%2Fs2.jpg?alt=media&token=f2773fa3-620f-4542-8fd6-c397ad24f5aa',
-    'https://firebasestorage.googleapis.com/v0/b/tuition-class-management-app.firebasestorage.app/o/images%2Fs3.jpg?alt=media&token=b550627d-4a7c-43ff-a13b-c964a5df80ee',
+    'https://firebasestorage.googleapis.com/v0/b/tuition-class-management-app.firebasestorage.app/o/images%2Fs1.jpeg?alt=media&token=46f9201e-226f-41e7-8761-f59d1761474d',
+    'https://firebasestorage.googleapis.com/v0/b/tuition-class-management-app.firebasestorage.app/o/images%2Fs2.jpeg?alt=media&token=9762730d-423c-4150-ae3d-de9afbbfb604',
+    'https://firebasestorage.googleapis.com/v0/b/tuition-class-management-app.firebasestorage.app/o/images%2Fs3.jpeg?alt=media&token=54352be7-4bbc-4c68-a0fd-9e930be14ed3',
+    'https://firebasestorage.googleapis.com/v0/b/tuition-class-management-app.firebasestorage.app/o/images%2Fs4.jpeg?alt=media&token=4bb14b56-6cac-4288-b469-5cb9f46aceaf',
   ];
 
   @override

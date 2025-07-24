@@ -11,10 +11,9 @@ class ContactModel extends Equatable {
   final String? email;
   final String? address;
   final String? website;
-  final String? facebook;
-  final String? instagram;
-  final String? twitter;
-  final String? linkedin;
+  final String? youtubeLink;
+  final String? facebookLink;
+  final String? whatsappLink;
   final String? description;
   final bool isActive;
 
@@ -28,10 +27,9 @@ class ContactModel extends Equatable {
     this.email,
     this.address,
     this.website,
-    this.facebook,
-    this.instagram,
-    this.twitter,
-    this.linkedin,
+    this.youtubeLink,
+    this.facebookLink,
+    this.whatsappLink,
     this.description,
     this.isActive = true,
   });
@@ -47,10 +45,9 @@ class ContactModel extends Equatable {
         email,
         address,
         website,
-        facebook,
-        instagram,
-        twitter,
-        linkedin,
+        youtubeLink,
+        facebookLink,
+        whatsappLink,
         description,
         isActive,
       ];
@@ -60,16 +57,15 @@ class ContactModel extends Equatable {
       id: json['id'] as String? ?? '',
       role: json['role'] as String? ?? 'Unknown',
       name: json['name'] as String? ?? 'No Name',
-      image: json['image'] as String?,
+      image: json['photoUrl'] as String?,
       phone1: json['phone1'] as String?,
       phone2: json['phone2'] as String?,
       email: json['email'] as String?,
       address: json['address'] as String?,
       website: json['website'] as String?,
-      facebook: json['facebook'] as String?,
-      instagram: json['instagram'] as String?,
-      twitter: json['twitter'] as String?,
-      linkedin: json['linkedin'] as String?,
+      youtubeLink: json['youtube_link'] as String?,
+      facebookLink: json['facebook_link'] as String?,
+      whatsappLink: json['whatsapp_link'] as String?,
       description: json['description'] as String?,
       isActive: json['isActive'] as bool? ?? true,
     );
@@ -80,16 +76,15 @@ class ContactModel extends Equatable {
       'id': id,
       'role': role,
       'name': name,
-      'image': image,
+      'photoUrl': image,
       'phone1': phone1,
       'phone2': phone2,
       'email': email,
       'address': address,
       'website': website,
-      'facebook': facebook,
-      'instagram': instagram,
-      'twitter': twitter,
-      'linkedin': linkedin,
+      'youtube_link': youtubeLink,
+      'facebook_link': facebookLink,
+      'whatsapp_link': whatsappLink,
       'description': description,
       'isActive': isActive,
     };
@@ -106,10 +101,9 @@ class ContactModel extends Equatable {
       email: email,
       address: address,
       website: website,
-      facebook: facebook,
-      instagram: instagram,
-      twitter: twitter,
-      linkedin: linkedin,
+      youtubeLink: youtubeLink,
+      facebookLink: facebookLink,
+      whatsappLink: whatsappLink,
       description: description,
       isActive: isActive,
     );

@@ -16,6 +16,9 @@ class Contact extends Equatable {
   final String? linkedin;
   final String? description;
   final bool isActive;
+  final String? youtubeLink;
+  final String? facebookLink;
+  final String? whatsappLink;
 
   const Contact({
     required this.id,
@@ -33,6 +36,9 @@ class Contact extends Equatable {
     this.linkedin,
     this.description,
     this.isActive = true,
+    this.youtubeLink,
+    this.facebookLink,
+    this.whatsappLink,
   });
 
   @override
@@ -52,5 +58,8 @@ class Contact extends Equatable {
         linkedin,
         description,
         isActive,
+        youtubeLink,
+        facebookLink,
+        whatsappLink,
       ];
 } 
