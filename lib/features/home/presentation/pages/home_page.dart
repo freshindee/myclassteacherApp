@@ -21,16 +21,45 @@ import 'term_test_papers_page.dart';
 import '../bloc/term_test_paper_bloc.dart';
 import '../../domain/usecases/get_term_test_papers.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
-  static const List<String> imageUrls = [
-    'https://firebasestorage.googleapis.com/v0/b/tuition-class-management-app.firebasestorage.app/o/images%2Fs1.jpeg?alt=media&token=46f9201e-226f-41e7-8761-f59d1761474d',
-    'https://firebasestorage.googleapis.com/v0/b/tuition-class-management-app.firebasestorage.app/o/images%2Fs2.jpeg?alt=media&token=9762730d-423c-4150-ae3d-de9afbbfb604',
-    'https://firebasestorage.googleapis.com/v0/b/tuition-class-management-app.firebasestorage.app/o/images%2Fs3.jpeg?alt=media&token=54352be7-4bbc-4c68-a0fd-9e930be14ed3',
-    'https://firebasestorage.googleapis.com/v0/b/tuition-class-management-app.firebasestorage.app/o/images%2Fs4.jpeg?alt=media&token=4bb14b56-6cac-4288-b469-5cb9f46aceaf',
-  ];
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  List<String> _imageUrls = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSliderImages();
+  }
+
+  Future<void> _fetchSliderImages() async {
+    try {
+      final querySnapshot = await FirebaseFirestore.instance.collection('slider').get();
+      final urls = querySnapshot.docs
+          .map((doc) => doc.data()['url'] as String?)
+          .where((url) => url != null && url.isNotEmpty)
+          .cast<String>()
+          .toList();
+      setState(() {
+        _imageUrls = urls;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load slider images';
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,39 +89,51 @@ class HomePage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Welcome Card
-                  // Main Menu Grid
-                CarouselSlider(
-                  options: CarouselOptions(
+                if (_isLoading)
+                  const SizedBox(
                     height: 180,
-                    autoPlay: true,
-                    enlargeCenterPage: true,
-                    viewportFraction: 1.0,
-                    aspectRatio: 16/9,
-                    autoPlayInterval: const Duration(seconds: 4),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_error != null)
+                  SizedBox(
+                    height: 180,
+                    child: Center(child: Text(_error!, style: const TextStyle(color: Colors.red))),
+                  )
+                else if (_imageUrls.isEmpty)
+                  const SizedBox(
+                    height: 180,
+                    child: Center(child: Text('No slider images found')),
+                  )
+                else
+                  CarouselSlider(
+                    options: CarouselOptions(
+                      height: 180,
+                      autoPlay: true,
+                      enlargeCenterPage: true,
+                      viewportFraction: 1.0,
+                      aspectRatio: 16/9,
+                      autoPlayInterval: const Duration(seconds: 4),
+                    ),
+                    items: _imageUrls.map((url) {
+                      return Builder(
+                        builder: (BuildContext context) {
+                          return Image.network(
+                            url,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            loadingBuilder: (context, child, progress) {
+                              if (progress == null) return child;
+                              return Center(child: CircularProgressIndicator(value: progress.expectedTotalBytes != null ? progress.cumulativeBytesLoaded / (progress.expectedTotalBytes ?? 1) : null));
+                            },
+                            errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image, size: 64, color: Colors.grey)),
+                          );
+                        },
+                      );
+                    }).toList(),
                   ),
-                  items: imageUrls.map((url) {
-                    return Builder(
-                      builder: (BuildContext context) {
-                        return Image.network(
-                          url,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          loadingBuilder: (context, child, progress) {
-                            if (progress == null) return child;
-                            return Center(child: CircularProgressIndicator(value: progress.expectedTotalBytes != null ? progress.cumulativeBytesLoaded / (progress.expectedTotalBytes ?? 1) : null));
-                          },
-                          errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image, size: 64, color: Colors.grey)),
-                        );
-                      },
-                    );
-                  }).toList(),
-                ),
-
-
                 const SizedBox(height: 20),
 
-                
+
                 // Main Menu Grid
                 GridView.count(
                   padding: const EdgeInsets.all(16.0),
