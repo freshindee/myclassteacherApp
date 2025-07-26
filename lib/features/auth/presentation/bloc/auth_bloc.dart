@@ -4,7 +4,6 @@ import 'package:formz/formz.dart';
 import '../../domain/usecases/sign_in.dart';
 import '../../domain/usecases/sign_up.dart';
 import '../../domain/usecases/sign_out.dart';
-import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases.dart';
 import '../../../../core/services/user_session_service.dart';
 import '../../domain/entities/user.dart';
@@ -23,6 +22,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }) : super(const AuthState()) {
     on<PhoneNumberChanged>(_onPhoneNumberChanged);
     on<PasswordChanged>(_onPasswordChanged);
+    on<NameChanged>(_onNameChanged);
+    on<BirthdayChanged>(_onBirthdayChanged);
+    on<DistrictChanged>(_onDistrictChanged);
     on<SignInSubmitted>(_onSignInSubmitted);
     on<SignUpSubmitted>(_onSignUpSubmitted);
     on<SignOutSubmitted>(_onSignOutSubmitted);
@@ -41,6 +43,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       Emitter<AuthState> emit,
       ) {
     emit(state.copyWith(password: event.password));
+  }
+
+  void _onNameChanged(
+      NameChanged event,
+      Emitter<AuthState> emit,
+      ) {
+    emit(state.copyWith(name: event.name));
+  }
+
+  void _onBirthdayChanged(
+      BirthdayChanged event,
+      Emitter<AuthState> emit,
+      ) {
+    emit(state.copyWith(birthday: event.birthday));
+  }
+
+  void _onDistrictChanged(
+      DistrictChanged event,
+      Emitter<AuthState> emit,
+      ) {
+    emit(state.copyWith(district: event.district));
   }
 
   Future<void> _onSignInSubmitted(
@@ -82,7 +105,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     emit(state.copyWith(status: FormzStatus.submissionInProgress));
 
-    final result = await signUp(state.phoneNumber, state.password);
+    final result = await signUp(
+      state.phoneNumber, 
+      state.password,
+      state.name,
+      state.birthday,
+      state.district,
+    );
 
     await result.fold(
           (failure) async {

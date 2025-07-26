@@ -13,6 +13,9 @@ class UserSessionService {
       'userId': user.userId,
       'phoneNumber': user.phoneNumber,
       'password': user.password,
+      'name': user.name,
+      'birthday': user.birthday?.toIso8601String(),
+      'district': user.district,
     }));
     await prefs.setBool(_isLoggedInKey, true);
   }
@@ -31,6 +34,9 @@ class UserSessionService {
         userId: userMap['userId'],
         phoneNumber: userMap['phoneNumber'],
         password: userMap['password'],
+        name: userMap['name'],
+        birthday: userMap['birthday'] != null ? DateTime.parse(userMap['birthday']) : null,
+        district: userMap['district'],
       );
     } catch (e) {
       // If there's an error parsing the user data, clear the session

@@ -3,7 +3,13 @@ import '../models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
   Future<UserModel> signIn(String phoneNumber, String password);
-  Future<UserModel> signUp(String phoneNumber, String password);
+  Future<UserModel> signUp(
+    String phoneNumber, 
+    String password,
+    String? name,
+    DateTime? birthday,
+    String? district,
+  );
   Future<void> signOut();
 }
 
@@ -53,6 +59,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         userId: actualUserId,
         phoneNumber: userData['phoneNumber'],
         password: userData['password'],
+        name: userData['name'],
+        birthday: userData['birthday'] != null ? DateTime.parse(userData['birthday']) : null,
+        district: userData['district'],
       );
     } catch (e) {
       print('❌ AuthDataSource: Sign in failed: $e');
@@ -61,7 +70,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
-  Future<UserModel> signUp(String phoneNumber, String password) async {
+  Future<UserModel> signUp(
+    String phoneNumber, 
+    String password,
+    String? name,
+    DateTime? birthday,
+    String? district,
+  ) async {
     try {
       // Check if user already exists
       final query = await firestore.collection('users')
@@ -76,12 +91,18 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'userId': phoneNumber,
         'phoneNumber': phoneNumber,
         'password': password,
+        'name': name,
+        'birthday': birthday?.toIso8601String(),
+        'district': district,
         'createdAt': FieldValue.serverTimestamp(),
       });
       return UserModel(
         userId: phoneNumber,
         phoneNumber: phoneNumber,
         password: password,
+        name: name,
+        birthday: birthday,
+        district: district,
       );
     } catch (e) {
       throw Exception('Failed to sign up:  [${e.toString()}');

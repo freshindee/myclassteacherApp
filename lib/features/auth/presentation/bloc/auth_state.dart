@@ -3,6 +3,9 @@ part of 'auth_bloc.dart';
 class AuthState extends Equatable {
   final String phoneNumber;
   final String password;
+  final String name;
+  final DateTime? birthday;
+  final String district;
   final FormzStatus status;
   final String? errorMessage;
   final User? user;
@@ -11,6 +14,9 @@ class AuthState extends Equatable {
   const AuthState({
     this.phoneNumber = '',
     this.password = '',
+    this.name = '',
+    this.birthday,
+    this.district = '',
     this.status = FormzStatus.pure,
     this.errorMessage,
     this.user,
@@ -20,6 +26,9 @@ class AuthState extends Equatable {
   AuthState copyWith({
     String? phoneNumber,
     String? password,
+    String? name,
+    DateTime? birthday,
+    String? district,
     FormzStatus? status,
     String? errorMessage,
     User? user,
@@ -28,6 +37,9 @@ class AuthState extends Equatable {
     return AuthState(
       phoneNumber: phoneNumber ?? this.phoneNumber,
       password: password ?? this.password,
+      name: name ?? this.name,
+      birthday: birthday ?? this.birthday,
+      district: district ?? this.district,
       status: status ?? this.status,
       errorMessage: errorMessage ?? this.errorMessage,
       user: user ?? this.user,
@@ -36,5 +48,5 @@ class AuthState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [phoneNumber, password, status, errorMessage, user, isLogout];
+  List<Object?> get props => [phoneNumber, password, name, birthday, district, status, errorMessage, user, isLogout];
 }

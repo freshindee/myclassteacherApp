@@ -45,16 +45,18 @@ class _HomePageState extends State<HomePage> {
     try {
       final querySnapshot = await FirebaseFirestore.instance.collection('slider').get();
       final urls = querySnapshot.docs
-          .map((doc) => doc.data()['url'] as String?)
-          .where((url) => url != null && url.isNotEmpty)
+          .map((doc) => doc.data()['image'] as String?)
+          .where((image) => image != null && image.isNotEmpty)
           .cast<String>()
           .toList();
       setState(() {
+        if (!mounted) return;
         _imageUrls = urls;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
+        if (!mounted) return;
         _error = 'Failed to load slider images';
         _isLoading = false;
       });
@@ -145,7 +147,7 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     _buildMenuCard(
                       context,
-                      'Free Videos',
+                      'වීඩියෝ පාඩම්',
                       Icons.play_circle_outline,
                       Colors.green,
                       () => Navigator.push(
@@ -160,7 +162,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     _buildMenuCard(
                       context,
-                      'Class Recordings',
+                      'පන්තිවල රෙකෝඩින්',
                       Icons.video_library,
                       Colors.red,
                       () => Navigator.push(
@@ -172,7 +174,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     _buildMenuCard(
                       context,
-                      'Today\'s Classes',
+                      'අද පැවැත්වෙන පන්ති',
                       Icons.assignment,
                       Colors.purple,
                       () => Navigator.push(
@@ -184,7 +186,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     _buildMenuCard(
                       context,
-                      'Timetable',
+                      'කාල සටහන',
                       Icons.calendar_today,
                       Colors.teal,
                       () => Navigator.push(
@@ -196,7 +198,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                      _buildMenuCard(
                       context,
-                      'Pay Fees',
+                      'පන්ති ගාස්තු ගෙවීම්',
                       Icons.payment,
                       Colors.green,
                       () {
@@ -215,7 +217,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     _buildMenuCard(
                       context,
-                      'Our Teachers',
+                      'අපේ ගුරුවරු',
                       Icons.people,
                       Colors.indigo,
                       () => Navigator.push(
@@ -227,7 +229,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                    _buildMenuCard(
                       context,
-                      'Notes & Assignments',
+                      'පන්ති නිබන්ධන',
                       Icons.note,
                       Colors.orange,
                       () => Navigator.push(
@@ -239,7 +241,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                    _buildMenuCard(
                      context,
-                     'Term Test Papers',
+                     'වාර විභාග ප්‍රශ්න පත්‍ර',
                      Icons.description,
                      Colors.deepPurple,
                      () => Navigator.push(
@@ -254,7 +256,7 @@ class _HomePageState extends State<HomePage> {
                    ),
                     _buildMenuCard(
                       context,
-                      'Contact Us',
+                      'අපි සමඟ සම්බන්ධ වන්න',
                       Icons.contact_page,
                       Colors.blue,
                       () => Navigator.push(
@@ -266,7 +268,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     _buildMenuCard(
                       context,
-                      'Old Videos',
+                      'පසුගිය මාසවල රෙකෝඩින්',
                       Icons.video_library,
                       Colors.purple,
                       () => Navigator.push(

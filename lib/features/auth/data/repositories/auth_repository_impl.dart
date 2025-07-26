@@ -23,6 +23,9 @@ class AuthRepositoryImpl implements AuthRepository {
         userId: userModel.userId,
         phoneNumber: userModel.phoneNumber,
         password: userModel.password,
+        name: userModel.name,
+        birthday: userModel.birthday,
+        district: userModel.district,
       );
       
       print('🔐 AuthRepository: Created user entity with userId: ${user.userId}');
@@ -35,13 +38,28 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, User>> signUp(String phoneNumber, String password) async {
+  Future<Either<Failure, User>> signUp(
+    String phoneNumber, 
+    String password,
+    String? name,
+    DateTime? birthday,
+    String? district,
+  ) async {
     try {
-      final userModel = await remoteDataSource.signUp(phoneNumber, password);
+      final userModel = await remoteDataSource.signUp(
+        phoneNumber, 
+        password,
+        name,
+        birthday,
+        district,
+      );
       return Right(User(
         userId: userModel.userId,
         phoneNumber: userModel.phoneNumber,
         password: userModel.password,
+        name: userModel.name,
+        birthday: userModel.birthday,
+        district: userModel.district,
       ));
     } catch (e) {
       return Left(ServerFailure(e.toString()));

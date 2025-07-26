@@ -19,10 +19,11 @@ class _TermTestPapersPageState extends State<TermTestPapersPage> {
   int? selectedTerm;
 
   final List<String> grades = [
-    '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'
+    '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'
   ];
   final List<String> subjects = [
-    'Mathematics', 'Science', 'English', 'ICT', 'Tamil', 'Sinhala'
+    'සියලුම විෂයන්(1-5 වසර)', 'Mathematics', 'English', 'Science', 'ICT', 'Tamil', 'Sinhala', 'History', 'Geography',
+     'Business studies', 'Civic'  
   ];
   final List<int> terms = [1, 2, 3];
 

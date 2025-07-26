@@ -16,7 +16,7 @@ class FreeVideosPage extends StatefulWidget {
 class _FreeVideosPageState extends State<FreeVideosPage> {
   String? selectedGrade;
   final List<String> grades = [
-    '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'
+    '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'
   ];
 
   @override

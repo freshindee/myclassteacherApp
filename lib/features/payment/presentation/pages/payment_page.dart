@@ -400,8 +400,8 @@ class _PaymentPageState extends State<PaymentPage> {
                         : (state is PaymentLoading
                             ? const CircularProgressIndicator(color: Colors.white)
                             : Text(
-                                'ඔබගේ ගෙවීම : Rs. $_calculatedAmount',
-                                style: const TextStyle(fontSize: 18),
+                                'ඔබගේ ගෙවීම තහවුරු කරන්න : Rs. $_calculatedAmount',
+                                style: const TextStyle(fontSize: 12),
                               )),
                   ),
 

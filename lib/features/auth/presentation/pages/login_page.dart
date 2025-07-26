@@ -19,14 +19,8 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    _phoneNumberController = TextEditingController(text: '0773771925');
-    _passwordController = TextEditingController(text: 'asdf1234');
-    
-    // Initialize the auth bloc with default values
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AuthBloc>().add(PhoneNumberChanged('0773771925'));
-      context.read<AuthBloc>().add(PasswordChanged('asdf1234'));
-    });
+    _phoneNumberController = TextEditingController();
+    _passwordController = TextEditingController();
   }
 
   @override

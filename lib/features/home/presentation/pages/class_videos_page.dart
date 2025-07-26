@@ -24,7 +24,7 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
     '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'
   ];
   final List<String> subjects = [
-    'Mathematics', 'Science', 'English', 'ICT', 'Tamil', 'Sinhala'
+    'සියලුම විෂයන්(1-5 වසර)','Mathematics', 'Science', 'English', 'ICT', 'Tamil'
   ];
 
   List<dynamic> currentMonthPayments = [];

@@ -25,6 +25,33 @@ class PasswordChanged extends AuthEvent {
   List<Object> get props => [password];
 }
 
+class NameChanged extends AuthEvent {
+  final String name;
+
+  const NameChanged(this.name);
+
+  @override
+  List<Object> get props => [name];
+}
+
+class BirthdayChanged extends AuthEvent {
+  final DateTime birthday;
+
+  const BirthdayChanged(this.birthday);
+
+  @override
+  List<Object> get props => [birthday];
+}
+
+class DistrictChanged extends AuthEvent {
+  final String district;
+
+  const DistrictChanged(this.district);
+
+  @override
+  List<Object> get props => [district];
+}
+
 class SignInSubmitted extends AuthEvent {
   const SignInSubmitted();
 }
