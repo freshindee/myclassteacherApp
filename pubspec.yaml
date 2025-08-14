@@ -54,6 +54,7 @@ dependencies:
   font_awesome_flutter: ^10.8.0
   syncfusion_flutter_pdfviewer: ^30.1.40
   carousel_slider: ^5.1.1
+  cryptography: ^2.7.0
 
 
 dev_dependencies:

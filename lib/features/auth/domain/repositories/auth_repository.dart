@@ -13,4 +13,12 @@ abstract class AuthRepository {
     String? district,
   );
   Future<Either<Failure, void>> signOut();
+  Future<Either<Failure, User>> updateUser({
+    required String userId,
+    String? phoneNumber,
+    String? name,
+    DateTime? birthday,
+    String? district,
+    String? newPassword,
+  });
 }

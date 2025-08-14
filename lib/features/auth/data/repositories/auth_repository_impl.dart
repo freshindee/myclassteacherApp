@@ -75,4 +75,35 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(ServerFailure(e.toString()));
     }
   }
+
+  @override
+  Future<Either<Failure, User>> updateUser({
+    required String userId,
+    String? phoneNumber,
+    String? name,
+    DateTime? birthday,
+    String? district,
+    String? newPassword,
+  }) async {
+    try {
+      final updated = await remoteDataSource.updateUser(
+        userId: userId,
+        phoneNumber: phoneNumber,
+        name: name,
+        birthday: birthday,
+        district: district,
+        newPassword: newPassword,
+      );
+      return Right(User(
+        userId: updated.userId,
+        phoneNumber: updated.phoneNumber,
+        password: '',
+        name: updated.name,
+        birthday: updated.birthday,
+        district: updated.district,
+      ));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
 }

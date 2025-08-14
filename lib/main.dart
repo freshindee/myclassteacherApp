@@ -27,11 +27,13 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
           useMaterial3: true,
+          splashFactory: InkRipple.splashFactory,
         ),
         home: const AuthWrapper(),
         routes: {
           '/home': (context) => const HomePage(),
           '/add-video': (context) => const AddVideoPage(),
+          '/login': (context) => const LoginPage(),
         },
       ),
     );

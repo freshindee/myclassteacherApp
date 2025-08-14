@@ -22,6 +22,7 @@ import '../bloc/term_test_paper_bloc.dart';
 import '../../domain/usecases/get_term_test_papers.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../auth/presentation/pages/profile_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -49,14 +50,14 @@ class _HomePageState extends State<HomePage> {
           .where((image) => image != null && image.isNotEmpty)
           .cast<String>()
           .toList();
+      if (!mounted) return;
       setState(() {
-        if (!mounted) return;
         _imageUrls = urls;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        if (!mounted) return;
         _error = 'Failed to load slider images';
         _isLoading = false;
       });
@@ -72,9 +73,13 @@ class _HomePageState extends State<HomePage> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.account_circle_outlined),
             onPressed: () {
-              context.read<AuthBloc>().add(const SignOutSubmitted());
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const ProfilePage(),
+                ),
+              );
             },
           ),
         ],

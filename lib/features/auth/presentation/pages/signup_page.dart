@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:formz/formz.dart';
 import '../constants/strings.dart';
@@ -108,8 +109,13 @@ class SignupPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   
-                  // Phone number field
+                  // Phone number field (digits only, max 10)
                   TextField(
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(10),
+                    ],
                     style: const TextStyle(fontSize: 16, color: Colors.black87),
                     decoration: const InputDecoration(
                       labelText: AppStrings.phoneNumberHint,
@@ -118,8 +124,9 @@ class SignupPage extends StatelessWidget {
                       labelStyle: TextStyle(color: Colors.black54),
                     ),
                     onChanged: (phoneNumber) {
+                      final trimmed = phoneNumber.trim();
                       context.read<AuthBloc>().add(
-                        PhoneNumberChanged(phoneNumber),
+                        PhoneNumberChanged(trimmed),
                       );
                     },
                   ),
@@ -166,9 +173,16 @@ class SignupPage extends StatelessWidget {
                       onPressed: state.status == FormzStatus.submissionInProgress
                           ? null
                           : () {
-                        context.read<AuthBloc>().add(
-                          const SignUpSubmitted(),
-                        );
+                        final sanitized = state.phoneNumber.replaceAll(RegExp('\\D'), '').trim();
+                        if (sanitized.length != 10) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please enter a valid 10-digit phone number')),
+                          );
+                          return;
+                        }
+                        // Ensure bloc has sanitized number before submit
+                        context.read<AuthBloc>().add(PhoneNumberChanged(sanitized));
+                        context.read<AuthBloc>().add(const SignUpSubmitted());
                       },
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),

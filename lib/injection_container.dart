@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 
 import 'core/network/network_info.dart';
+import 'core/services/crypto_service.dart';
 import 'features/auth/data/datasources/auth_remote_data_source.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/repositories/auth_repository.dart';
@@ -10,6 +11,7 @@ import 'features/auth/domain/usecases/sign_in.dart';
 import 'features/auth/domain/usecases/sign_out.dart';
 import 'features/auth/domain/usecases/sign_up.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/auth/domain/usecases/update_user.dart';
 import 'features/home/data/datasources/note_remote_data_source.dart';
 import 'features/home/data/datasources/video_remote_data_source.dart';
 import 'features/home/data/datasources/advertisement_remote_data_source.dart';
@@ -136,6 +138,7 @@ void init() {
   sl.registerLazySingleton(() => SignIn(sl()));
   sl.registerLazySingleton(() => SignUp(sl()));
   sl.registerLazySingleton(() => SignOut(sl()));
+  sl.registerLazySingleton(() => UpdateUser(sl()));
   sl.registerLazySingleton(() => GetVideos(sl()));
   sl.registerLazySingleton(() => GetNotes(sl()));
   sl.registerLazySingleton(() => GetNotesByGrade(sl()));
@@ -214,7 +217,10 @@ void init() {
 
   // Data sources
   sl.registerLazySingleton<AuthRemoteDataSource>(
-    () => AuthRemoteDataSourceImpl(firestore: sl()),
+    () => AuthRemoteDataSourceImpl(
+      firestore: sl(),
+      cryptoService: sl(),
+    ),
   );
   sl.registerLazySingleton<VideoRemoteDataSource>(
     () => VideoRemoteDataSourceImpl(firestore: sl()),
@@ -246,6 +252,7 @@ void init() {
 
   // Core
   sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
+  sl.registerLazySingleton<CryptoService>(() => CryptoService());
 
   // External
   sl.registerLazySingleton(() => FirebaseFirestore.instance);

@@ -23,82 +23,130 @@ class DisplayContactDetailsPage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             // WhatsApp group and call section
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.green[50],
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(24),
-                  bottomRight: Radius.circular(24),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.green.withOpacity(0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    'පන්ති පිළිබද ගැටළුවක් ඇත්නම් දැනුම් දෙන්න.',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green[800],
+            BlocBuilder<ContactBloc, ContactState>(
+              builder: (context, state) {
+                String? whatsappUrl;
+                String? phoneNumber;
+                
+                if (state is ContactLoaded && state.contacts.isNotEmpty) {
+                  // Find the first contact with WhatsApp link
+                  final contactWithWhatsApp = state.contacts.firstWhere(
+                    (contact) => contact.whatsappLink != null && contact.whatsappLink!.isNotEmpty,
+                    orElse: () => state.contacts.first,
+                  );
+                  whatsappUrl = contactWithWhatsApp.whatsappLink;
+                  
+                  // Find the first contact with phone number
+                  final contactWithPhone = state.contacts.firstWhere(
+                    (contact) => contact.phone1 != null && contact.phone1!.isNotEmpty,
+                    orElse: () => state.contacts.first,
+                  );
+                  phoneNumber = contactWithPhone.phone1;
+                }
+                
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(24),
+                      bottomRight: Radius.circular(24),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green[700],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.green.withOpacity(0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
-                    ),
-                    icon: const FaIcon(FontAwesomeIcons.whatsapp, size: 28),
-                    label: const Text('WhatsApp', style: TextStyle(fontSize: 16)),
-                    onPressed: () async {
-                      const url = 'https://chat.whatsapp.com/IDFUtbhTWeZDAywAeCVJIF';
-                      if (await canLaunchUrl(Uri.parse(url))) {
-                        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                      }
-                    },
+                    ],
                   ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'අපිට කතාකරන්න',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.blue[800],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue[700],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                  child: Column(
+                    children: [
+                      Text(
+                        'පන්ති පිළිබද ගැටළුවක් ඇත්නම් දැනුම් දෙන්න.',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green[800],
+                        ),
                       ),
-                    ),
-                    icon: const Icon(Icons.phone, size: 26),
-                    label: const Text('Call 0777316215', style: TextStyle(fontSize: 16)),
-                    onPressed: () async {
-                      const phone = 'tel:0777316215';
-                      if (await canLaunchUrl(Uri.parse(phone))) {
-                        await launchUrl(Uri.parse(phone));
-                      }
-                    },
+                      const SizedBox(height: 12),
+                      if (whatsappUrl != null && whatsappUrl.isNotEmpty)
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green[700],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          icon: const FaIcon(FontAwesomeIcons.whatsapp, size: 28),
+                          label: const Text('WhatsApp', style: TextStyle(fontSize: 16)),
+                          onPressed: () async {
+                            if (await canLaunchUrl(Uri.parse(whatsappUrl!))) {
+                              await launchUrl(Uri.parse(whatsappUrl!), mode: LaunchMode.externalApplication);
+                            }
+                          },
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Text(
+                            'WhatsApp link not available',
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                          ),
+                        ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'අපිට කතාකරන්න',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.blue[800],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (phoneNumber != null && phoneNumber.isNotEmpty)
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue[700],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          icon: const Icon(Icons.phone, size: 26),
+                          label: Text('Call $phoneNumber', style: const TextStyle(fontSize: 16)),
+                          onPressed: () async {
+                            final phone = 'tel:$phoneNumber';
+                            if (await canLaunchUrl(Uri.parse(phone))) {
+                              await launchUrl(Uri.parse(phone));
+                            }
+                          },
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Text(
+                            'Phone number not available',
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                          ),
+                        ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
             // Expanded contact list
             Expanded(
