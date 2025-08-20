@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:classes/features/home/presentation/pages/video_player_page.dart';
+import 'video_player_page.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/video.dart';
 import 'free_videos_bloc.dart';
+import '../../../../core/services/user_session_service.dart';
 
 class FreeVideosPage extends StatefulWidget {
   const FreeVideosPage({super.key});
@@ -15,16 +16,60 @@ class FreeVideosPage extends StatefulWidget {
 
 class _FreeVideosPageState extends State<FreeVideosPage> {
   String? selectedGrade;
+  String? teacherId;
+
   final List<String> grades = [
-    '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'
+    '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadTeacherId();
+  }
+
+  Future<void> _loadTeacherId() async {
+    final user = await UserSessionService.getCurrentUser();
+    setState(() {
+      teacherId = user?.teacherId ?? '';
+    });
+    print('🎬 [DEBUG] FreeVideosPage - Loaded teacherId: "$teacherId"');
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (teacherId == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    
+    // Don't allow interaction if teacherId is empty
+    if (teacherId!.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Free Videos'),
+          backgroundColor: Colors.blue[600],
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red),
+              SizedBox(height: 16),
+              Text(
+                'Teacher ID not found. Please login again.',
+                style: TextStyle(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('නොමිලේ වීඩියෝ'),
-        backgroundColor: Colors.blue,
+        title: const Text('Free Videos'),
+        backgroundColor: Colors.blue[600],
         foregroundColor: Colors.white,
       ),
       body: Column(
@@ -33,7 +78,7 @@ class _FreeVideosPageState extends State<FreeVideosPage> {
             padding: const EdgeInsets.all(16.0),
             child: Row(
               children: [
-                const Text('පන්තිය තෝරන්න: ', style: TextStyle(fontSize: 16)),
+                const Text('පන්තිය තෝරන්න : ', style: TextStyle(fontSize: 16)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButton<String>(
@@ -50,10 +95,16 @@ class _FreeVideosPageState extends State<FreeVideosPage> {
                       setState(() {
                         selectedGrade = grade;
                       });
-                      if (grade != null) {
-                        context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(grade));
+                      if (teacherId!.isNotEmpty) {
+                        if (grade != null) {
+                          print('🎬 [DEBUG] FreeVideosPage - Calling LoadFreeVideosByGrade with teacherId: "$teacherId", grade: "$grade"');
+                          context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(teacherId!, grade));
+                        } else {
+                          print('🎬 [DEBUG] FreeVideosPage - Calling LoadFreeVideos with teacherId: "$teacherId"');
+                          context.read<FreeVideosBloc>().add(LoadFreeVideos(teacherId!));
+                        }
                       } else {
-                        context.read<FreeVideosBloc>().add(LoadFreeVideos());
+                        print('🎬 [DEBUG] FreeVideosPage - Skipping API call due to empty teacherId');
                       }
                     },
                   ),
@@ -93,8 +144,9 @@ class _FreeVideosPageState extends State<FreeVideosPage> {
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () {
-                            if (selectedGrade != null) {
-                              context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(selectedGrade!));
+                            if (teacherId!.isNotEmpty && selectedGrade != null) {
+                              print('🎬 [DEBUG] FreeVideosPage - Retry - Calling LoadFreeVideosByGrade with teacherId: "$teacherId", grade: "$selectedGrade"');
+                              context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(teacherId!, selectedGrade!));
                             }
                           },
                           child: const Text('Retry'),
@@ -118,10 +170,11 @@ class _FreeVideosPageState extends State<FreeVideosPage> {
           ),
         ],
       ),
-      floatingActionButton: selectedGrade != null
+      floatingActionButton: selectedGrade != null && teacherId!.isNotEmpty
           ? FloatingActionButton(
               onPressed: () {
-                context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(selectedGrade!));
+                print('🎬 [DEBUG] FreeVideosPage - Refresh - Calling LoadFreeVideosByGrade with teacherId: "$teacherId", grade: "$selectedGrade"');
+                context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(teacherId!, selectedGrade!));
               },
               backgroundColor: Colors.blue,
               foregroundColor: Colors.white,

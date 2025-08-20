@@ -3,33 +3,44 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/teacher.dart';
 import 'teachers_bloc.dart';
+import '../../../../core/services/user_session_service.dart';
 
 class TeachersPage extends StatelessWidget {
   const TeachersPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => sl<TeachersBloc>()..add(LoadTeachers()),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Our Teachers'),
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
-        ),
-        body: BlocBuilder<TeachersBloc, TeachersState>(
-          builder: (context, state) {
-            if (state is TeachersLoading) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (state is TeachersLoaded) {
-              return _buildTeacherList(context, state.teachers);
-            } else if (state is TeachersError) {
-              return Center(child: Text('Error: ${state.message}'));
-            }
-            return const Center(child: Text('No teachers available'));
-          },
-        ),
-      ),
+    return FutureBuilder(
+      future: UserSessionService.getCurrentUser(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        final user = snapshot.data;
+        final teacherId = user?.teacherId ?? '';
+        return BlocProvider(
+          create: (context) => sl<TeachersBloc>()..add(LoadTeachers(teacherId)),
+          child: Scaffold(
+            appBar: AppBar(
+              title: const Text('Our Teachers'),
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            body: BlocBuilder<TeachersBloc, TeachersState>(
+              builder: (context, state) {
+                if (state is TeachersLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (state is TeachersLoaded) {
+                  return _buildTeacherList(context, state.teachers);
+                } else if (state is TeachersError) {
+                  return Center(child: Text('Error: ${state.message}'));
+                }
+                return const Center(child: Text('No teachers available'));
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 

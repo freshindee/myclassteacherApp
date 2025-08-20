@@ -5,7 +5,7 @@ class TodayClassModel {
   final String grade;
   final String subject;
   final String teacher;
-  final int teacherId;
+  final String teacherId;
   final String time;
   final String joinUrl;
 
@@ -23,7 +23,7 @@ class TodayClassModel {
       grade: json['grade'] as String,
       subject: json['subject'] as String,
       teacher: json['teacher'] as String,
-      teacherId: json['teacherId'] as int,
+      teacherId: json['teacherId'] as String,
       time: json['time'] as String,
       joinUrl: json['joinUrl'] as String,
     );

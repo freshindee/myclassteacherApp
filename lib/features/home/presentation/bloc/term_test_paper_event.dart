@@ -6,12 +6,13 @@ class TermTestPaperEvent extends Equatable {
 }
 
 class FetchTermTestPapers extends TermTestPaperEvent {
+  final String teacherId;
   final String? grade;
   final String? subject;
   final int? term;
 
-  FetchTermTestPapers({this.grade, this.subject, this.term});
+  FetchTermTestPapers({required this.teacherId, this.grade, this.subject, this.term});
 
   @override
-  List<Object?> get props => [grade, subject, term];
+  List<Object?> get props => [teacherId, grade, subject, term];
 } 

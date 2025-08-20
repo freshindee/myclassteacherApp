@@ -1,12 +1,40 @@
 import '../entities/term_test_paper.dart';
 import '../repositories/term_test_paper_repository.dart';
+import 'package:dartz/dartz.dart';
+import '../../../../core/errors/failures.dart';
+import '../../../../core/usecases.dart';
 
-class GetTermTestPapers {
+class GetTermTestPapers implements UseCase<List<TermTestPaper>, GetTermTestPapersParams> {
   final TermTestPaperRepository repository;
 
   GetTermTestPapers(this.repository);
 
-  Future<List<TermTestPaper>> call({String? grade, String? subject, int? term}) {
-    return repository.getTermTestPapers(grade: grade, subject: subject, term: term);
+  @override
+  Future<Either<Failure, List<TermTestPaper>>> call(GetTermTestPapersParams params) async {
+    try {
+      final result = await repository.getTermTestPapers(
+        teacherId: params.teacherId, 
+        grade: params.grade, 
+        subject: params.subject, 
+        term: params.term
+      );
+      return result;
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
   }
+}
+
+class GetTermTestPapersParams {
+  final String teacherId;
+  final String? grade;
+  final String? subject;
+  final int? term;
+  
+  GetTermTestPapersParams({
+    required this.teacherId, 
+    this.grade, 
+    this.subject, 
+    this.term
+  });
 } 

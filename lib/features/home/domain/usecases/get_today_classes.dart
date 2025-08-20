@@ -4,11 +4,11 @@ import '../../../../core/usecases.dart';
 import '../entities/today_class.dart';
 import '../repositories/today_class_repository.dart';
 
-class GetTodayClasses implements UseCase<List<TodayClass>, NoParams> {
+class GetTodayClasses implements UseCase<List<TodayClass>, String> {
   final TodayClassRepository repository;
   GetTodayClasses(this.repository);
   @override
-  Future<Either<Failure, List<TodayClass>>> call(NoParams params) async {
-    return await repository.getTodayClasses();
+  Future<Either<Failure, List<TodayClass>>> call(String teacherId) async {
+    return await repository.getTodayClasses(teacherId);
   }
 } 

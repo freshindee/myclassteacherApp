@@ -161,6 +161,7 @@ void init() {
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
       remoteDataSource: sl(),
+      networkInfo: sl(),
     ),
   );
   sl.registerLazySingleton<VideoRepository>(
@@ -212,7 +213,10 @@ void init() {
     ),
   );
   sl.registerLazySingleton<TermTestPaperRepository>(
-    () => TermTestPaperRepositoryImpl(remoteDataSource: sl()),
+    () => TermTestPaperRepositoryImpl(
+      remoteDataSource: sl(),
+      networkInfo: sl(),
+    ),
   );
 
   // Data sources

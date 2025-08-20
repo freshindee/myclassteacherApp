@@ -52,6 +52,15 @@ class DistrictChanged extends AuthEvent {
   List<Object> get props => [district];
 }
 
+class TeacherIdChanged extends AuthEvent {
+  final String teacherId;
+
+  const TeacherIdChanged(this.teacherId);
+
+  @override
+  List<Object> get props => [teacherId];
+}
+
 class SignInSubmitted extends AuthEvent {
   const SignInSubmitted();
 }

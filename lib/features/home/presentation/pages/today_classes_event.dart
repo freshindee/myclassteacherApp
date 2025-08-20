@@ -5,4 +5,9 @@ abstract class TodayClassesEvent extends Equatable {
   @override
   List<Object> get props => [];
 }
-class LoadTodayClasses extends TodayClassesEvent {} 
+class LoadTodayClasses extends TodayClassesEvent {
+  final String teacherId;
+  const LoadTodayClasses(this.teacherId);
+  @override
+  List<Object> get props => [teacherId];
+} 

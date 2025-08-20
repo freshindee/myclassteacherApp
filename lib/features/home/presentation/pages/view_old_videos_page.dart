@@ -1,7 +1,7 @@
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:classes/features/home/presentation/pages/video_player_page.dart';
+import 'video_player_page.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import 'old_videos_bloc.dart';
@@ -57,6 +57,20 @@ class _ViewOldVideoPageState extends State<ViewOldVideoPage> {
     }
 
     final userId = user.userId;
+    final teacherId = user.teacherId ?? '';
+
+    if (teacherId.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('පසුගිය වීඩියෝ'),
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(
+          child: Text('Teacher ID not found. Please contact support.'),
+        ),
+      );
+    }
 
     return BlocProvider(
       create: (_) => sl<OldVideosBloc>(),
@@ -93,7 +107,7 @@ class _ViewOldVideoPageState extends State<ViewOldVideoPage> {
                             });
                             // Dispatch event to fetch old videos for selected grade
                             context.read<OldVideosBloc>().add(
-                              FetchOldVideos(userId: userId, grade: grade),
+                              FetchOldVideos(userId: userId, teacherId: teacherId, grade: grade),
                             );
                           },
                         ),
@@ -220,7 +234,7 @@ class _ViewOldVideoPageState extends State<ViewOldVideoPage> {
                                     const SizedBox(height: 16),
                                     ElevatedButton(
                                       onPressed: () {
-                                        context.read<OldVideosBloc>().add(FetchOldVideos(userId: userId, grade: selectedGrade));
+                                        context.read<OldVideosBloc>().add(FetchOldVideos(userId: userId, teacherId: teacherId, grade: selectedGrade));
                                       },
                                       child: const Text('Retry'),
                                     ),

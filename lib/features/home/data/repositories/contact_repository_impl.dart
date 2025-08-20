@@ -17,75 +17,85 @@ class ContactRepositoryImpl implements ContactRepository {
   });
 
   @override
-  Future<Either<Failure, List<Contact>>> getContacts() async {
+  Future<Either<Failure, List<Contact>>> getContacts(String teacherId) async {
+    print('📞 [REPOSITORY] ContactRepository.getContacts called with teacherId: $teacherId');
+    
     if (await networkInfo.isConnected) {
       try {
-        developer.log('📱 Fetching contacts from repository...', name: 'ContactRepository');
-        final contactModels = await remoteDataSource.getContacts();
-        developer.log('📱 Converting ${contactModels.length} contact models to entities', name: 'ContactRepository');
+        print('📞 [REPOSITORY] Network connected, calling remote data source...');
+        final contactModels = await remoteDataSource.getContacts(teacherId);
+        print('📞 [REPOSITORY] Successfully fetched ${contactModels.length} contact models from remote data source');
         
         final contacts = contactModels.map((model) => Contact(
           id: model.id,
           role: model.role,
           name: model.name,
-          image: model.image,
           phone1: model.phone1,
           phone2: model.phone2,
           email: model.email,
           address: model.address,
           website: model.website,
-          youtubeLink: model.youtubeLink,
-          facebookLink: model.facebookLink,
-          whatsappLink: model.whatsappLink,
           description: model.description,
           isActive: model.isActive,
+          whatsappLink: model.whatsappLink,
+          facebookLink: model.facebookLink,
+          youtubeLink: model.youtubeLink,
+          image: model.image,
         )).toList();
-
-        developer.log('✅ Successfully converted ${contacts.length} contacts', name: 'ContactRepository');
+        
+        print('📞 [REPOSITORY] Successfully converted ${contacts.length} contact models to entities');
         return Right(contacts);
       } catch (e) {
-        developer.log('❌ Failed to fetch contacts: ${e.toString()}', name: 'ContactRepository');
+        print('📞 [REPOSITORY ERROR] Failed to fetch contacts: $e');
         return Left(ServerFailure(e.toString()));
       }
     } else {
-      developer.log('❌ No internet connection for contacts', name: 'ContactRepository');
+      print('📞 [REPOSITORY ERROR] No internet connection');
       return Left(ServerFailure('No internet connection'));
     }
   }
 
   @override
-  Future<Either<Failure, Contact>> getContactById(String id) async {
+  Future<Either<Failure, Contact?>> getContactById(String teacherId, String contactId) async {
+    print('📞 [REPOSITORY] ContactRepository.getContactById called with teacherId: $teacherId, contactId: $contactId');
+    
     if (await networkInfo.isConnected) {
       try {
-        developer.log('📱 Fetching contact by ID from repository: $id', name: 'ContactRepository');
-        final contactModel = await remoteDataSource.getContactById(id);
-        developer.log('📱 Converting contact model to entity', name: 'ContactRepository');
+        print('📞 [REPOSITORY] Network connected, calling remote data source...');
+        final contactModel = await remoteDataSource.getContactById(teacherId, contactId);
+        
+        if (contactModel == null) {
+          print('📞 [REPOSITORY] Contact not found for contactId: $contactId');
+          return const Right(null);
+        }
+        
+        print('📞 [REPOSITORY] Successfully fetched contact model from remote data source');
         
         final contact = Contact(
           id: contactModel.id,
           role: contactModel.role,
           name: contactModel.name,
-          image: contactModel.image,
           phone1: contactModel.phone1,
           phone2: contactModel.phone2,
           email: contactModel.email,
           address: contactModel.address,
           website: contactModel.website,
-          youtubeLink: contactModel.youtubeLink,
-          facebookLink: contactModel.facebookLink,
-          whatsappLink: contactModel.whatsappLink,
           description: contactModel.description,
           isActive: contactModel.isActive,
+          whatsappLink: contactModel.whatsappLink,
+          facebookLink: contactModel.facebookLink,
+          youtubeLink: contactModel.youtubeLink,
+          image: contactModel.image,
         );
-
-        developer.log('✅ Successfully converted contact: ${contact.name}', name: 'ContactRepository');
+        
+        print('📞 [REPOSITORY] Successfully converted contact model to entity: ${contact.name}');
         return Right(contact);
       } catch (e) {
-        developer.log('❌ Failed to fetch contact by ID: ${e.toString()}', name: 'ContactRepository');
+        print('📞 [REPOSITORY ERROR] Failed to fetch contact by ID: $e');
         return Left(ServerFailure(e.toString()));
       }
     } else {
-      developer.log('❌ No internet connection for contact', name: 'ContactRepository');
+      print('📞 [REPOSITORY ERROR] No internet connection');
       return Left(ServerFailure('No internet connection'));
     }
   }

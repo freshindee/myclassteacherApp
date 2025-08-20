@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="classes"
+        android:label="My Class Teacher"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -131,6 +131,22 @@ class SignupPage extends StatelessWidget {
                     },
                   ),
                   const SizedBox(height: 16),
+                  // Teacher ID field
+                  TextField(
+                    style: const TextStyle(fontSize: 16, color: Colors.black87),
+                    decoration: const InputDecoration(
+                      labelText: 'Enter Teacher ID',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                      labelStyle: TextStyle(color: Colors.black54),
+                    ),
+                    onChanged: (teacherId) {
+                      context.read<AuthBloc>().add(
+                        TeacherIdChanged(teacherId),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
                   
                   // Password field
                   TextField(

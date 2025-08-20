@@ -2,7 +2,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:classes/features/home/presentation/pages/video_player_page.dart';
+import 'video_player_page.dart';
 
 import '../../../../injection_container.dart';
 import '../../domain/usecases/add_video.dart';
@@ -81,7 +81,7 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
     }
   }
 
-  void _onGradeOrSubjectChanged(String? grade, String? subject, String userId, BuildContext context) {
+  void _onGradeOrSubjectChanged(String? grade, String? subject, String userId, String teacherId, BuildContext context) {
     setState(() {
       selectedGrade = grade;
       selectedSubject = subject;
@@ -105,7 +105,7 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
         return;
       }
       context.read<ClassVideosBloc>().add(
-        FetchClassVideos(userId: userId, grade: grade, subject: subject, payments: currentMonthPayments),
+        FetchClassVideos(userId: userId, teacherId: teacherId, grade: grade, subject: subject, payments: currentMonthPayments),
       );
     }
   }
@@ -148,10 +148,11 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
     }
 
     final userId = user.userId;
+    final teacherId = user.teacherId ?? '';
     
     // Log the parameters being sent for video fetching
-    developer.log('🎬 ClassVideosPage: Fetching videos with userId: $userId', name: 'ClassVideosPage');
-    print('🎬 ClassVideosPage: Fetching videos with userId: $userId');
+    developer.log('🎬 ClassVideosPage: Fetching videos with userId: $userId, teacherId: $teacherId', name: 'ClassVideosPage');
+    print('🎬 ClassVideosPage: Fetching videos with userId: $userId, teacherId: $teacherId');
 
     return BlocProvider(
       create: (_) => sl<ClassVideosBloc>(),
@@ -173,7 +174,7 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
               //   IconButton(
               //     icon: const Icon(Icons.add),
               //     onPressed: () async {
-              //       await _addTestVideo(context, userId);
+              //       await _addTestVideo(context, userId, teacherId);
               //     },
               //   ),
               // ],
@@ -207,7 +208,7 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
                                 );
                               }).toList(),
                               onChanged: (grade) {
-                                _onGradeOrSubjectChanged(grade, selectedSubject, userId, context);
+                                _onGradeOrSubjectChanged(grade, selectedSubject, userId, teacherId, context);
                               },
                             ),
                           ),
@@ -230,7 +231,7 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
                                 );
                               }).toList(),
                               onChanged: (subject) {
-                                _onGradeOrSubjectChanged(selectedGrade, subject, userId, context);
+                                _onGradeOrSubjectChanged(selectedGrade, subject, userId, teacherId, context);
                               },
                             ),
                           ),
@@ -353,7 +354,7 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
                                       const SizedBox(height: 16),
                                       ElevatedButton(
                                         onPressed: () {
-                                          context.read<ClassVideosBloc>().add(FetchClassVideos(userId: userId, payments: currentMonthPayments));
+                                          context.read<ClassVideosBloc>().add(FetchClassVideos(userId: userId, teacherId: teacherId, payments: currentMonthPayments));
                                         },
                                         child: const Text('Retry'),
                                       ),
@@ -374,7 +375,7 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
     );
   }
 
-  Future<void> _addTestVideo(BuildContext context, String userId) async {
+  Future<void> _addTestVideo(BuildContext context, String userId, String teacherId) async {
     try {
       final addVideo = sl<AddVideo>();
       final params = AddVideoParams(
@@ -405,7 +406,7 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
             ),
           );
           // Refresh the video list
-          context.read<ClassVideosBloc>().add(FetchClassVideos(userId: userId, payments: currentMonthPayments));
+          context.read<ClassVideosBloc>().add(FetchClassVideos(userId: userId, teacherId: teacherId, payments: currentMonthPayments));
         },
       );
     } catch (e) {

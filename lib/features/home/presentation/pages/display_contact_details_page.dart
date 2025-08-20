@@ -5,203 +5,75 @@ import '../../../../injection_container.dart';
 import '../../domain/entities/contact.dart';
 import 'contact_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../../../../core/services/user_session_service.dart';
 
 class DisplayContactDetailsPage extends StatelessWidget {
   const DisplayContactDetailsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => sl<ContactBloc>()..add(LoadContacts()),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Contact Us'),
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
-        ),
-        body: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // WhatsApp group and call section
-            BlocBuilder<ContactBloc, ContactState>(
-              builder: (context, state) {
-                String? whatsappUrl;
-                String? phoneNumber;
-                
-                if (state is ContactLoaded && state.contacts.isNotEmpty) {
-                  // Find the first contact with WhatsApp link
-                  final contactWithWhatsApp = state.contacts.firstWhere(
-                    (contact) => contact.whatsappLink != null && contact.whatsappLink!.isNotEmpty,
-                    orElse: () => state.contacts.first,
-                  );
-                  whatsappUrl = contactWithWhatsApp.whatsappLink;
-                  
-                  // Find the first contact with phone number
-                  final contactWithPhone = state.contacts.firstWhere(
-                    (contact) => contact.phone1 != null && contact.phone1!.isNotEmpty,
-                    orElse: () => state.contacts.first,
-                  );
-                  phoneNumber = contactWithPhone.phone1;
-                }
-                
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.green[50],
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(24),
-                      bottomRight: Radius.circular(24),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.green.withOpacity(0.08),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'පන්ති පිළිබද ගැටළුවක් ඇත්නම් දැනුම් දෙන්න.',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green[800],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (whatsappUrl != null && whatsappUrl.isNotEmpty)
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green[700],
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          icon: const FaIcon(FontAwesomeIcons.whatsapp, size: 28),
-                          label: const Text('WhatsApp', style: TextStyle(fontSize: 16)),
-                          onPressed: () async {
-                            if (await canLaunchUrl(Uri.parse(whatsappUrl!))) {
-                              await launchUrl(Uri.parse(whatsappUrl!), mode: LaunchMode.externalApplication);
-                            }
-                          },
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Text(
-                            'WhatsApp link not available',
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
-                          ),
-                        ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'අපිට කතාකරන්න',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.blue[800],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      if (phoneNumber != null && phoneNumber.isNotEmpty)
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue[700],
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          icon: const Icon(Icons.phone, size: 26),
-                          label: Text('Call $phoneNumber', style: const TextStyle(fontSize: 16)),
-                          onPressed: () async {
-                            final phone = 'tel:$phoneNumber';
-                            if (await canLaunchUrl(Uri.parse(phone))) {
-                              await launchUrl(Uri.parse(phone));
-                            }
-                          },
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Text(
-                            'Phone number not available',
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
+    return FutureBuilder(
+      future: UserSessionService.getCurrentUser(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        final user = snapshot.data;
+        final teacherId = user?.teacherId ?? '';
+        return BlocProvider(
+          create: (context) => sl<ContactBloc>()..add(LoadContacts(teacherId)),
+          child: Scaffold(
+            appBar: AppBar(
+              title: const Text('Contact Details'),
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
             ),
-            // Expanded contact list
-            Expanded(
-              child: BlocBuilder<ContactBloc, ContactState>(
-                builder: (context, state) {
-                  if (state is ContactInitial) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (state is ContactLoading) {
-                    return const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 16),
-                          Text('Loading contact information...'),
-                        ],
-                      ),
-                    );
-                  } else if (state is ContactLoaded) {
-                    return _buildContactList(context, state.contacts);
-                  } else if (state is ContactError) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.error_outline, size: 64, color: Colors.red),
-                          SizedBox(height: 16),
-                          Text('Error:  [${state.message}]'),
-                          SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: () {
-                              context.read<ContactBloc>().add(LoadContacts());
-                            },
-                            child: const Text('Retry'),
+            body: Column(
+              children: [
+                Expanded(
+                  child: BlocBuilder<ContactBloc, ContactState>(
+                    builder: (context, state) {
+                      if (state is ContactLoading) {
+                        return const Center(child: CircularProgressIndicator());
+                      } else if (state is ContactLoaded) {
+                        return _buildContactList(context, state.contacts);
+                      } else if (state is ContactError) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.error_outline, size: 64, color: Colors.red),
+                              SizedBox(height: 16),
+                              Text('Error:  [${state.message}]'),
+                              SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () {
+                                  context.read<ContactBloc>().add(LoadContacts(teacherId));
+                                },
+                                child: const Text('Retry'),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                  }
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.contact_page, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('No contact information available'),
-                      ],
-                    ),
-                  );
-                },
-              ),
+                        );
+                      }
+                      return const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.contact_page, size: 64, color: Colors.grey),
+                            SizedBox(height: 16),
+                            Text('No contact information available'),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -221,7 +93,9 @@ class DisplayContactDetailsPage extends StatelessWidget {
     
     return RefreshIndicator(
       onRefresh: () async {
-        context.read<ContactBloc>().add(LoadContacts());
+        final user = await UserSessionService.getCurrentUser();
+        final teacherId = user?.teacherId ?? '';
+        context.read<ContactBloc>().add(LoadContacts(teacherId));
       },
       child: ListView.builder(
         padding: const EdgeInsets.all(16),

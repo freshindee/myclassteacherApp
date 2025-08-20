@@ -15,7 +15,8 @@ class SignUp {
     String? name,
     DateTime? birthday,
     String? district,
+    String? teacherId,
   ) async {
-    return await repository.signUp(phoneNumber, password, name, birthday, district);
+    return await repository.signUp(phoneNumber, password, name, birthday, district, teacherId);
   }
 }

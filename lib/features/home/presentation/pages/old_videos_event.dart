@@ -9,10 +9,11 @@ abstract class OldVideosEvent extends Equatable {
 
 class FetchOldVideos extends OldVideosEvent {
   final String userId;
+  final String teacherId;
   final String? grade;
 
-  const FetchOldVideos({required this.userId, this.grade});
+  const FetchOldVideos({required this.userId, required this.teacherId, this.grade});
 
   @override
-  List<Object> get props => [userId, grade ?? ''];
+  List<Object> get props => [userId, teacherId, grade ?? ''];
 } 

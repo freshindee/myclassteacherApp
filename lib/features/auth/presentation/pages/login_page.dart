@@ -15,18 +15,21 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   late TextEditingController _phoneNumberController;
   late TextEditingController _passwordController;
+  late TextEditingController _teacherIdController;
 
   @override
   void initState() {
     super.initState();
     _phoneNumberController = TextEditingController();
     _passwordController = TextEditingController();
+    _teacherIdController = TextEditingController();
   }
 
   @override
   void dispose() {
     _phoneNumberController.dispose();
     _passwordController.dispose();
+    _teacherIdController.dispose();
     super.dispose();
   }
 
@@ -112,6 +115,24 @@ class _LoginPageState extends State<LoginPage> {
                             builder: (context, state) {
                               return Column(
                                 children: [
+                                  TextField(
+                                    controller: _teacherIdController,
+                                    decoration: InputDecoration(
+                                      labelText: AppStrings.teacherIdHint,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      prefixIcon: const Icon(Icons.badge_outlined),
+                                      filled: true,
+                                      fillColor: Colors.grey[100],
+                                    ),
+                                    onChanged: (teacherId) {
+                                      context.read<AuthBloc>().add(
+                                        TeacherIdChanged(teacherId),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
                                   TextField(
                                     controller: _phoneNumberController,
                                     decoration: InputDecoration(

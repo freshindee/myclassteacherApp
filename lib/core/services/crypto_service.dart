@@ -88,6 +88,12 @@ class CryptoService {
     );
     return utf8.decode(clearBytes);
   }
+
+  Future<bool> verifyPassword(String password, String storedPassword) async {
+    // For now, use simple string comparison
+    // In production, this should compare hashed passwords
+    return password == storedPassword;
+  }
 }
 
 

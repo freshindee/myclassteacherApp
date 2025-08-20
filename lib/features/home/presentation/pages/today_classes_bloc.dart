@@ -18,7 +18,7 @@ class TodayClassesBloc extends Bloc<TodayClassesEvent, TodayClassesState> {
     Emitter<TodayClassesState> emit,
   ) async {
     emit(TodayClassesLoading());
-    final result = await getTodayClasses(NoParams());
+    final result = await getTodayClasses(event.teacherId);
     result.fold(
       (failure) => emit(TodayClassesError(failure.toString())),
       (classes) => emit(TodayClassesLoaded(classes)),

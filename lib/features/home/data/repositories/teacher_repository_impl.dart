@@ -15,16 +15,32 @@ class TeacherRepositoryImpl implements TeacherRepository {
   });
 
   @override
-  Future<Either<Failure, List<Teacher>>> getTeachers() async {
+  Future<Either<Failure, List<Teacher>>> getTeachers(String teacherId) async {
+    print('👨‍🏫 [REPOSITORY] TeacherRepository.getTeachers called with teacherId: $teacherId');
+    
     if (await networkInfo.isConnected) {
       try {
-        final models = await remoteDataSource.getTeachers();
-        final entities = models.map((m) => m.toEntity()).toList();
-        return Right(entities);
+        print('👨‍🏫 [REPOSITORY] Network connected, calling remote data source...');
+        final teacherModels = await remoteDataSource.getTeachers(teacherId);
+        print('👨‍🏫 [REPOSITORY] Successfully fetched ${teacherModels.length} teacher models from remote data source');
+        
+        final teachers = teacherModels.map((model) => Teacher(
+          id: model.id,
+          name: model.name,
+          subject: model.subject,
+          grade: model.grade,
+          phone: model.phone,
+          image: model.image,
+        )).toList();
+        
+        print('👨‍🏫 [REPOSITORY] Successfully converted ${teachers.length} teacher models to entities');
+        return Right(teachers);
       } catch (e) {
+        print('👨‍🏫 [REPOSITORY ERROR] Failed to fetch teachers: $e');
         return Left(ServerFailure(e.toString()));
       }
     } else {
+      print('👨‍🏫 [REPOSITORY ERROR] No internet connection');
       return Left(ServerFailure('No internet connection'));
     }
   }

@@ -1,39 +1,48 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/network/network_info.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource remoteDataSource;
+  final NetworkInfo networkInfo;
 
-  AuthRepositoryImpl({required this.remoteDataSource});
+  AuthRepositoryImpl({
+    required this.remoteDataSource,
+    required this.networkInfo,
+  });
 
   @override
-  Future<Either<Failure, User>> signIn(String phoneNumber, String password) async {
-    try {
-      print('🔐 AuthRepository: Calling remote data source for sign in');
-      final userModel = await remoteDataSource.signIn(phoneNumber, password);
-      
-      print('🔐 AuthRepository: Received user model from data source:');
-      print('🔐   - userId: ${userModel.userId}');
-      print('🔐   - phoneNumber: ${userModel.phoneNumber}');
-      
-      final user = User(
-        userId: userModel.userId,
-        phoneNumber: userModel.phoneNumber,
-        password: userModel.password,
-        name: userModel.name,
-        birthday: userModel.birthday,
-        district: userModel.district,
-      );
-      
-      print('🔐 AuthRepository: Created user entity with userId: ${user.userId}');
-      
-      return Right(user);
-    } catch (e) {
-      print('❌ AuthRepository: Sign in failed: $e');
-      return Left(ServerFailure(e.toString()));
+  Future<Either<Failure, User>> signIn(String teacherId, String whatsappNo, String password) async {
+    print('🔐 [REPOSITORY] AuthRepository.signIn called with teacherId: $teacherId, whatsappNo: $whatsappNo');
+    
+    if (await networkInfo.isConnected) {
+      try {
+        print('🔐 [REPOSITORY] Network connected, calling remote data source...');
+        final userModel = await remoteDataSource.signIn(teacherId, whatsappNo, password);
+        print('🔐 [REPOSITORY] Successfully authenticated user with ID: ${userModel.userId}');
+        
+        final user = User(
+          userId: userModel.userId,
+          phoneNumber: userModel.phoneNumber,
+          password: userModel.password,
+          name: userModel.name,
+          birthday: userModel.birthday,
+          district: userModel.district,
+          teacherId: userModel.teacherId,
+        );
+        
+        print('🔐 [REPOSITORY] Successfully converted user model to entity with ID: ${user.userId}');
+        return Right(user);
+      } catch (e) {
+        print('🔐 [REPOSITORY ERROR] Failed to sign in: $e');
+        return Left(ServerFailure(e.toString()));
+      }
+    } else {
+      print('🔐 [REPOSITORY ERROR] No internet connection');
+      return Left(ServerFailure('No internet connection'));
     }
   }
 
@@ -44,6 +53,7 @@ class AuthRepositoryImpl implements AuthRepository {
     String? name,
     DateTime? birthday,
     String? district,
+    String? teacherId,
   ) async {
     try {
       final userModel = await remoteDataSource.signUp(
@@ -52,6 +62,7 @@ class AuthRepositoryImpl implements AuthRepository {
         name,
         birthday,
         district,
+        teacherId,
       );
       return Right(User(
         userId: userModel.userId,
@@ -60,6 +71,7 @@ class AuthRepositoryImpl implements AuthRepository {
         name: userModel.name,
         birthday: userModel.birthday,
         district: userModel.district,
+        teacherId: userModel.teacherId,
       ));
     } catch (e) {
       return Left(ServerFailure(e.toString()));

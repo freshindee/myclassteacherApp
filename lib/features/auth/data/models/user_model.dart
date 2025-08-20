@@ -7,6 +7,7 @@ class UserModel extends Equatable {
   final String? name;
   final DateTime? birthday;
   final String? district;
+  final String? teacherId;
 
   const UserModel({
     required this.userId,
@@ -15,10 +16,11 @@ class UserModel extends Equatable {
     this.name,
     this.birthday,
     this.district,
+    this.teacherId,
   });
 
   @override
-  List<Object?> get props => [userId, phoneNumber, password, name, birthday, district];
+  List<Object?> get props => [userId, phoneNumber, password, name, birthday, district, teacherId];
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -28,6 +30,7 @@ class UserModel extends Equatable {
       name: json['name'] as String?,
       birthday: json['birthday'] != null ? DateTime.parse(json['birthday'] as String) : null,
       district: json['district'] as String?,
+      teacherId: json['teacherId'] as String?,
     );
   }
 
@@ -39,6 +42,7 @@ class UserModel extends Equatable {
       'name': name,
       'birthday': birthday?.toIso8601String(),
       'district': district,
+      'teacherId': teacherId,
     };
   }
 }

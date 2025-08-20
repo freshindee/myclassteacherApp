@@ -8,6 +8,7 @@ import '../../domain/usecases/get_advertisements.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases.dart';
 import '../../../../injection_container.dart';
+import '../../../../core/services/user_session_service.dart';
 
 part 'free_classes_bloc.dart';
 part 'free_classes_event.dart';
@@ -18,57 +19,67 @@ class FreeClassesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => FreeClassesBloc(
-        getAdvertisements: sl<GetAdvertisements>(),
-      )..add(LoadFreeVideos()),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Free Classes'),
-          backgroundColor: Colors.blue[600],
-          foregroundColor: Colors.white,
-        ),
-        body: BlocBuilder<FreeClassesBloc, FreeClassesState>(
-          builder: (context, state) {
-            if (state is FreeClassesLoading) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
-            } else if (state is FreeClassesLoaded) {
-              return _buildVideoList(context, state.videos);
-            } else if (state is FreeClassesError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Colors.red[300],
+    return FutureBuilder(
+      future: UserSessionService.getCurrentUser(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        final user = snapshot.data;
+        final teacherId = user?.teacherId ?? '';
+        return BlocProvider(
+          create: (context) => FreeClassesBloc(
+            getAdvertisements: sl<GetAdvertisements>(),
+          )..add(LoadFreeVideos(teacherId)),
+          child: Scaffold(
+            appBar: AppBar(
+              title: const Text('Free Classes'),
+              backgroundColor: Colors.blue[600],
+              foregroundColor: Colors.white,
+            ),
+            body: BlocBuilder<FreeClassesBloc, FreeClassesState>(
+              builder: (context, state) {
+                if (state is FreeClassesLoading) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                } else if (state is FreeClassesLoaded) {
+                  return _buildVideoList(context, state.videos);
+                } else if (state is FreeClassesError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 64,
+                          color: Colors.red[300],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error: ${state.message}',
+                          style: const TextStyle(fontSize: 16),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            context.read<FreeClassesBloc>().add(LoadFreeVideos(teacherId));
+                          },
+                          child: const Text('Retry'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error: ${state.message}',
-                      style: const TextStyle(fontSize: 16),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.read<FreeClassesBloc>().add(LoadFreeVideos());
-                      },
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              );
-            }
-            return const Center(
-              child: Text('No videos available'),
-            );
-          },
-        ),
-      ),
+                  );
+                }
+                return const Center(
+                  child: Text('No videos available'),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 

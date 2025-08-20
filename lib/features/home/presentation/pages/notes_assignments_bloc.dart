@@ -7,7 +7,7 @@ class NotesAssignmentsBloc extends Bloc<NotesAssignmentsEvent, NotesAssignmentsS
   NotesAssignmentsBloc({required this.getNotes, required this.getNotesByGrade}) : super(NotesAssignmentsInitial()) {
     on<LoadNotes>((event, emit) async {
       emit(NotesAssignmentsLoading());
-      final result = await getNotes(NoParams());
+      final result = await getNotes(event.teacherId);
       result.fold(
         (failure) {
           emit(NotesAssignmentsError(_mapFailureToMessage(failure)));
@@ -17,7 +17,7 @@ class NotesAssignmentsBloc extends Bloc<NotesAssignmentsEvent, NotesAssignmentsS
     });
     on<LoadNotesByGrade>((event, emit) async {
       emit(NotesAssignmentsLoading());
-      final result = await getNotesByGrade(event.grade);
+      final result = await getNotesByGrade(GetNotesByGradeParams(teacherId: event.teacherId, grade: event.grade));
       result.fold(
         (failure) {
           emit(NotesAssignmentsError(_mapFailureToMessage(failure)));

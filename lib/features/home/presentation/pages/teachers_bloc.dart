@@ -18,7 +18,7 @@ class TeachersBloc extends Bloc<TeachersEvent, TeachersState> {
     Emitter<TeachersState> emit,
   ) async {
     emit(TeachersLoading());
-    final result = await getTeachers(NoParams());
+    final result = await getTeachers(event.teacherId);
     result.fold(
       (failure) => emit(TeachersError(failure.toString())),
       (teachers) => emit(TeachersLoaded(teachers)),

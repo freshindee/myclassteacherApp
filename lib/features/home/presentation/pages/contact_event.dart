@@ -7,4 +7,9 @@ abstract class ContactEvent extends Equatable {
   List<Object> get props => [];
 }
 
-class LoadContacts extends ContactEvent {} 
+class LoadContacts extends ContactEvent {
+  final String teacherId;
+  const LoadContacts(this.teacherId);
+  @override
+  List<Object> get props => [teacherId];
+} 

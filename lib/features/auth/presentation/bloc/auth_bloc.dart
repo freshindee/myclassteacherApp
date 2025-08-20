@@ -29,6 +29,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<SignUpSubmitted>(_onSignUpSubmitted);
     on<SignOutSubmitted>(_onSignOutSubmitted);
     on<CheckAuthStatus>(_onCheckAuthStatus);
+    on<TeacherIdChanged>(_onTeacherIdChanged);
   }
 
   void _onPhoneNumberChanged(
@@ -66,16 +67,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(state.copyWith(district: event.district));
   }
 
+  void _onTeacherIdChanged(
+      TeacherIdChanged event,
+      Emitter<AuthState> emit,
+      ) {
+    emit(state.copyWith(teacherId: event.teacherId));
+  }
+
   Future<void> _onSignInSubmitted(
       SignInSubmitted event,
       Emitter<AuthState> emit,
       ) async {
     if (state.status.isSubmissionInProgress) return;
-
+    if (state.teacherId.length != 6) {
+      emit(state.copyWith(
+        status: FormzStatus.submissionFailure,
+        errorMessage: 'Teacher ID must be 6 digits',
+      ));
+      return;
+    }
     emit(state.copyWith(status: FormzStatus.submissionInProgress));
-
-    final result = await signIn(state.phoneNumber, state.password);
-
+    final result = await signIn(state.phoneNumber, state.password, state.teacherId);
     await result.fold(
           (failure) async {
         emit(state.copyWith(
@@ -86,8 +98,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           (user) async {
         // Save user session
         print('🔐 AuthBloc: Sign in successful, saving user session');
-        print('🔐   - userId: ${user.userId}');
+        print('🔐   - userId:  [32m${user.userId} [0m');
         print('🔐   - phoneNumber: ${user.phoneNumber}');
+        print('🔐   - teacherId: ${user.teacherId}');
         await UserSessionService.saveUserSession(user);
         emit(state.copyWith(
           status: FormzStatus.submissionSuccess,
@@ -111,6 +124,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       state.name,
       state.birthday,
       state.district,
+      state.teacherId,
     );
 
     await result.fold(

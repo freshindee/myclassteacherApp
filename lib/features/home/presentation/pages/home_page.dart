@@ -253,7 +253,7 @@ class _HomePageState extends State<HomePage> {
                        context,
                        MaterialPageRoute(
                          builder: (context) => BlocProvider(
-                           create: (_) => TermTestPaperBloc(getTermTestPapers: sl<GetTermTestPapers>())..add(FetchTermTestPapers()),
+                           create: (_) => TermTestPaperBloc(getTermTestPapers: sl<GetTermTestPapers>())..add(FetchTermTestPapers(teacherId: context.read<AuthBloc>().state.user?.teacherId ?? '')),
                            child: const TermTestPapersPage(),
                          ),
                        ),

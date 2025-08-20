@@ -7,13 +7,19 @@ abstract class ScheduleEvent extends Equatable {
   List<Object> get props => [];
 }
 
-class LoadGrades extends ScheduleEvent {}
+class LoadGrades extends ScheduleEvent {
+  final String teacherId;
+  const LoadGrades(this.teacherId);
+  @override
+  List<Object> get props => [teacherId];
+}
 
 class LoadTimetable extends ScheduleEvent {
+  final String teacherId;
   final String grade;
 
-  const LoadTimetable(this.grade);
+  const LoadTimetable(this.teacherId, this.grade);
 
   @override
-  List<Object> get props => [grade];
+  List<Object> get props => [teacherId, grade];
 } 

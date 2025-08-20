@@ -32,7 +32,7 @@ class OldVideosBloc extends Bloc<OldVideosEvent, OldVideosState> {
       
       // Fetch all old videos for the user (no filters)
       final videosResult = await getVideos(
-        GetVideosParams(userId: event.userId, grade: event.grade),
+        GetVideosParams(userId: event.userId, teacherId: event.teacherId, grade: event.grade),
       ).timeout(const Duration(seconds: 60), onTimeout: () {
         throw Exception('Timeout while fetching videos');
       });

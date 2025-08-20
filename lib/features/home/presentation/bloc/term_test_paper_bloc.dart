@@ -17,11 +17,17 @@ class TermTestPaperBloc extends Bloc<TermTestPaperEvent, TermTestPaperState> {
     emit(TermTestPaperLoading());
     try {
       final papers = await getTermTestPapers(
-        grade: event.grade,
-        subject: event.subject,
-        term: event.term,
+        GetTermTestPapersParams(
+          teacherId: event.teacherId,
+          grade: event.grade,
+          subject: event.subject,
+          term: event.term,
+        ),
       );
-      emit(TermTestPaperLoaded(papers));
+      papers.fold(
+        (failure) => emit(TermTestPaperError(failure.toString())),
+        (papers) => emit(TermTestPaperLoaded(papers)),
+      );
     } catch (e) {
       emit(TermTestPaperError(e.toString()));
     }

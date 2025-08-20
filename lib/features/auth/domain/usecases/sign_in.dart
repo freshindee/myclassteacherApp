@@ -9,7 +9,7 @@ class SignIn {
 
   SignIn(this.repository);
 
-  Future<Either<Failure, User>> call(String phoneNumber, String password) async {
-    return await repository.signIn(phoneNumber, password);
+  Future<Either<Failure, User>> call(String phoneNumber, String password, String teacherId) async {
+    return await repository.signIn(phoneNumber, password, teacherId);
   }
 }

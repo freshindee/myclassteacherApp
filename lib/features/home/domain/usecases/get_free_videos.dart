@@ -4,11 +4,11 @@ import '../../../../core/usecases.dart';
 import '../entities/video.dart';
 import '../repositories/video_repository.dart';
 
-class GetFreeVideos implements UseCase<List<Video>, NoParams> {
+class GetFreeVideos implements UseCase<List<Video>, String> {
   final VideoRepository repository;
   GetFreeVideos(this.repository);
   @override
-  Future<Either<Failure, List<Video>>> call(NoParams params) async {
-    return await repository.getFreeVideos();
+  Future<Either<Failure, List<Video>>> call(String teacherId) async {
+    return await repository.getFreeVideos(teacherId);
   }
 } 

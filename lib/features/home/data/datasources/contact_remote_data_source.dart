@@ -3,8 +3,8 @@ import 'dart:developer' as developer;
 import '../models/contact_model.dart';
 
 abstract class ContactRemoteDataSource {
-  Future<List<ContactModel>> getContacts();
-  Future<ContactModel> getContactById(String id);
+  Future<List<ContactModel>> getContacts(String teacherId);
+  Future<ContactModel?> getContactById(String teacherId, String contactId);
 }
 
 class ContactRemoteDataSourceImpl implements ContactRemoteDataSource {
@@ -15,56 +15,68 @@ class ContactRemoteDataSourceImpl implements ContactRemoteDataSource {
   });
 
   @override
-  Future<List<ContactModel>> getContacts() async {
+  Future<List<ContactModel>> getContacts(String teacherId) async {
     try {
-      developer.log('🔍 Fetching contacts from Firestore...', name: 'ContactDataSource');
+      print('📞 [API REQUEST] ContactDataSource.getContacts called with teacherId: $teacherId');
       
-      final querySnapshot = await firestore.collection('contacts').get();
+      final querySnapshot = await firestore
+          .collection('contacts')
+          .where('teacherId', isEqualTo: teacherId)
+          .get();
       
-      developer.log('📊 Found ${querySnapshot.docs.length} contact documents', name: 'ContactDataSource');
+      print('📞 [API RESPONSE] Found ${querySnapshot.docs.length} contact documents for teacherId: $teacherId');
       
       final contacts = querySnapshot.docs.map((doc) {
         final data = doc.data();
-        developer.log('📞 Contact document ${doc.id}: $data', name: 'ContactDataSource');
-        
+        print('📞 [API RESPONSE] Contact document ${doc.id}: $data');
         return ContactModel.fromJson({
           'id': doc.id,
           ...data,
         });
       }).toList();
       
-      developer.log('✅ Successfully parsed ${contacts.length} contacts', name: 'ContactDataSource');
+      print('📞 [API RESPONSE] Successfully parsed ${contacts.length} contacts');
       return contacts;
     } catch (e) {
-      developer.log('❌ Error fetching contacts: $e', name: 'ContactDataSource');
+      print('📞 [API ERROR] Error fetching contacts: $e');
       throw Exception('Failed to fetch contacts: $e');
     }
   }
 
   @override
-  Future<ContactModel> getContactById(String id) async {
+  Future<ContactModel?> getContactById(String teacherId, String contactId) async {
     try {
-      developer.log('🔍 Fetching contact by ID: $id', name: 'ContactDataSource');
+      print('📞 [API REQUEST] ContactDataSource.getContactById called with teacherId: $teacherId, contactId: $contactId');
       
-      final docSnapshot = await firestore.collection('contacts').doc(id).get();
+      final doc = await firestore
+          .collection('contacts')
+          .doc(contactId)
+          .get();
       
-      if (!docSnapshot.exists) {
-        throw Exception('Contact not found');
+      if (!doc.exists) {
+        print('📞 [API RESPONSE] Contact document not found for contactId: $contactId');
+        return null;
       }
       
-      final data = docSnapshot.data()!;
-      developer.log('📞 Contact document $id: $data', name: 'ContactDataSource');
+      final data = doc.data()!;
+      print('📞 [API RESPONSE] Contact document ${doc.id}: $data');
+      
+      // Check if the contact belongs to the specified teacher
+      if (data['teacherId'] != teacherId) {
+        print('📞 [API RESPONSE] Contact does not belong to teacherId: $teacherId');
+        return null;
+      }
       
       final contact = ContactModel.fromJson({
-        'id': docSnapshot.id,
+        'id': doc.id,
         ...data,
       });
       
-      developer.log('✅ Successfully parsed contact: ${contact.name}', name: 'ContactDataSource');
+      print('📞 [API RESPONSE] Successfully parsed contact: ${contact.name}');
       return contact;
     } catch (e) {
-      developer.log('❌ Error fetching contact by ID: $e', name: 'ContactDataSource');
-      throw Exception('Failed to fetch contact: $e');
+      print('📞 [API ERROR] Error fetching contact by ID: $e');
+      throw Exception('Failed to fetch contact by ID: $e');
     }
   }
 } 

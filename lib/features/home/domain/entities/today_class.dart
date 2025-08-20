@@ -4,7 +4,7 @@ class TodayClass extends Equatable {
   final String grade;
   final String subject;
   final String teacher;
-  final int teacherId;
+  final String teacherId;
   final String time;
   final String joinUrl;
 

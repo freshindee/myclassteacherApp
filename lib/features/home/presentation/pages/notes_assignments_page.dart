@@ -11,6 +11,7 @@ import '../../../../injection_container.dart';
 import '../../domain/entities/note.dart';
 import '../../domain/usecases/get_notes.dart';
 import '../../domain/usecases/get_notes_by_grade.dart';
+import '../../../../core/services/user_session_service.dart';
 
 part 'notes_assignments_bloc.dart';
 part 'notes_assignments_event.dart';
@@ -25,12 +26,30 @@ class NotesAssignmentsPage extends StatefulWidget {
 
 class _NotesAssignmentsPageState extends State<NotesAssignmentsPage> {
   String? selectedGrade;
+  String? teacherId;
+
   final List<String> grades = [
     '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadTeacherId();
+  }
+
+  Future<void> _loadTeacherId() async {
+    final user = await UserSessionService.getCurrentUser();
+    setState(() {
+      teacherId = user?.teacherId ?? '';
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (teacherId == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     return BlocProvider(
       create: (context) => sl<NotesAssignmentsBloc>(),
       child: Builder(
@@ -66,7 +85,7 @@ class _NotesAssignmentsPageState extends State<NotesAssignmentsPage> {
                           if (grade != null) {
                             print('[NotesAssignmentsPage] Selected grade: $grade');
                             print('[NotesAssignmentsPage] Dispatching LoadNotesByGrade for: $grade');
-                            context.read<NotesAssignmentsBloc>().add(LoadNotesByGrade(grade));
+                            context.read<NotesAssignmentsBloc>().add(LoadNotesByGrade(teacherId!, grade));
                           }
                         },
                       ),

@@ -17,12 +17,14 @@ class TimetableRepositoryImpl implements TimetableRepository {
   });
 
   @override
-  Future<Either<Failure, List<Timetable>>> getTimetableByGrade(String grade) async {
+  Future<Either<Failure, List<Timetable>>> getTimetableByGrade(String teacherId, String grade) async {
+    print('📅 [REPOSITORY] TimetableRepository.getTimetableByGrade called with teacherId: $teacherId, grade: $grade');
+    
     if (await networkInfo.isConnected) {
       try {
-        developer.log('📱 Fetching timetable for grade $grade from repository...', name: 'TimetableRepository');
-        final timetableModels = await remoteDataSource.getTimetableByGrade(grade);
-        developer.log('📱 Converting ${timetableModels.length} timetable models to entities', name: 'TimetableRepository');
+        print('📅 [REPOSITORY] Network connected, calling remote data source...');
+        final timetableModels = await remoteDataSource.getTimetableByGrade(teacherId, grade);
+        print('📅 [REPOSITORY] Successfully fetched ${timetableModels.length} timetable models from remote data source for grade $grade');
         
         final timetables = timetableModels.map((model) => Timetable(
           id: model.id,
@@ -30,41 +32,38 @@ class TimetableRepositoryImpl implements TimetableRepository {
           subject: model.subject,
           day: model.day,
           time: model.time,
-          teacher: model.teacher,
-          teacherId: model.teacherId,
-          room: model.room,
-          description: model.description,
           index: model.index,
-          time2: model.time2,
-          time3: model.time3,
+          displayId: model.displayId,
         )).toList();
-
-        developer.log('✅ Successfully converted ${timetables.length} timetable entries', name: 'TimetableRepository');
+        
+        print('📅 [REPOSITORY] Successfully converted ${timetables.length} timetable models to entities for grade $grade');
         return Right(timetables);
       } catch (e) {
-        developer.log('❌ Failed to fetch timetable for grade $grade: ${e.toString()}', name: 'TimetableRepository');
+        print('📅 [REPOSITORY ERROR] Failed to fetch timetable by grade: $e');
         return Left(ServerFailure(e.toString()));
       }
     } else {
-      developer.log('❌ No internet connection for timetable', name: 'TimetableRepository');
+      print('📅 [REPOSITORY ERROR] No internet connection');
       return Left(ServerFailure('No internet connection'));
     }
   }
 
   @override
-  Future<Either<Failure, List<String>>> getAvailableGrades() async {
+  Future<Either<Failure, List<String>>> getAvailableGrades(String teacherId) async {
+    print('📅 [REPOSITORY] TimetableRepository.getAvailableGrades called with teacherId: $teacherId');
+    
     if (await networkInfo.isConnected) {
       try {
-        developer.log('📱 Fetching available grades from repository...', name: 'TimetableRepository');
-        final grades = await remoteDataSource.getAvailableGrades();
-        developer.log('✅ Successfully fetched ${grades.length} available grades', name: 'TimetableRepository');
+        print('📅 [REPOSITORY] Network connected, calling remote data source...');
+        final grades = await remoteDataSource.getAvailableGrades(teacherId);
+        print('📅 [REPOSITORY] Successfully fetched ${grades.length} available grades from remote data source: $grades');
         return Right(grades);
       } catch (e) {
-        developer.log('❌ Failed to fetch available grades: ${e.toString()}', name: 'TimetableRepository');
+        print('📅 [REPOSITORY ERROR] Failed to fetch available grades: $e');
         return Left(ServerFailure(e.toString()));
       }
     } else {
-      developer.log('❌ No internet connection for grades', name: 'TimetableRepository');
+      print('📅 [REPOSITORY ERROR] No internet connection');
       return Left(ServerFailure('No internet connection'));
     }
   }

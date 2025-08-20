@@ -4,11 +4,11 @@ import '../../../../core/usecases.dart';
 import '../entities/teacher.dart';
 import '../repositories/teacher_repository.dart';
 
-class GetTeachers implements UseCase<List<Teacher>, NoParams> {
+class GetTeachers implements UseCase<List<Teacher>, String> {
   final TeacherRepository repository;
   GetTeachers(this.repository);
   @override
-  Future<Either<Failure, List<Teacher>>> call(NoParams params) async {
-    return await repository.getTeachers();
+  Future<Either<Failure, List<Teacher>>> call(String teacherId) async {
+    return await repository.getTeachers(teacherId);
   }
 } 

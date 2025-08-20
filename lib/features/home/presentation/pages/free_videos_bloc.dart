@@ -22,7 +22,7 @@ class FreeVideosBloc extends Bloc<FreeVideosEvent, FreeVideosState> {
     Emitter<FreeVideosState> emit,
   ) async {
     emit(FreeVideosLoading());
-    final result = await getFreeVideos(NoParams());
+    final result = await getFreeVideos(event.teacherId);
     result.fold(
       (failure) => emit(FreeVideosError(failure.toString())),
       (videos) => emit(FreeVideosLoaded(videos)),
@@ -34,7 +34,7 @@ class FreeVideosBloc extends Bloc<FreeVideosEvent, FreeVideosState> {
     Emitter<FreeVideosState> emit,
   ) async {
     emit(FreeVideosLoading());
-    final result = await getFreeVideosByGrade(event.grade);
+    final result = await getFreeVideosByGrade(GetFreeVideosByGradeParams(teacherId: event.teacherId, grade: event.grade));
     result.fold(
       (failure) => emit(FreeVideosError(failure.toString())),
       (videos) => emit(FreeVideosLoaded(videos)),

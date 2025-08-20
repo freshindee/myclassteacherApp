@@ -25,7 +25,7 @@ class ScheduleBloc extends Bloc<ScheduleEvent, ScheduleState> {
     Emitter<ScheduleState> emit,
   ) async {
     emit(ScheduleLoading());
-    final result = await getAvailableGrades(NoParams());
+    final result = await getAvailableGrades(event.teacherId);
     result.fold(
       (failure) => emit(ScheduleError(failure.toString())),
       (grades) => emit(GradesLoaded(grades)),
@@ -37,7 +37,7 @@ class ScheduleBloc extends Bloc<ScheduleEvent, ScheduleState> {
     Emitter<ScheduleState> emit,
   ) async {
     emit(ScheduleLoading());
-    final result = await getTimetableByGrade(event.grade);
+    final result = await getTimetableByGrade(GetTimetableByGradeParams(teacherId: event.teacherId, grade: event.grade));
     result.fold(
       (failure) => emit(ScheduleError(failure.toString())),
       (timetables) => emit(TimetableLoaded(timetables, event.grade)),

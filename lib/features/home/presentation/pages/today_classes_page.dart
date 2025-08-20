@@ -4,33 +4,44 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/today_class.dart';
 import 'today_classes_bloc.dart';
+import '../../../../core/services/user_session_service.dart';
 
 class TodayClassesPage extends StatelessWidget {
   const TodayClassesPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => sl<TodayClassesBloc>()..add(LoadTodayClasses()),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text("අද දවසේ පන්ති"),
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
-        ),
-        body: BlocBuilder<TodayClassesBloc, TodayClassesState>(
-          builder: (context, state) {
-            if (state is TodayClassesLoading) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (state is TodayClassesLoaded) {
-              return _buildClassList(context, state.classes);
-            } else if (state is TodayClassesError) {
-              return Center(child: Text('Error: ${state.message}'));
-            }
-            return const Center(child: Text('අද දින පන්ති නොමැත.'));
-          },
-        ),
-      ),
+    return FutureBuilder(
+      future: UserSessionService.getCurrentUser(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        final user = snapshot.data;
+        final teacherId = user?.teacherId ?? '';
+        return BlocProvider(
+          create: (context) => sl<TodayClassesBloc>()..add(LoadTodayClasses(teacherId)),
+          child: Scaffold(
+            appBar: AppBar(
+              title: const Text("අද දවසේ පන්ති"),
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            body: BlocBuilder<TodayClassesBloc, TodayClassesState>(
+              builder: (context, state) {
+                if (state is TodayClassesLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (state is TodayClassesLoaded) {
+                  return _buildClassList(context, state.classes);
+                } else if (state is TodayClassesError) {
+                  return Center(child: Text('Error: ${state.message}'));
+                }
+                return const Center(child: Text('අද දින පන්ති නොමැත.'));
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 

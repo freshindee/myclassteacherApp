@@ -1,15 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:classes/core/services/crypto_service.dart';
+import '../../../../core/services/crypto_service.dart';
 import '../models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
-  Future<UserModel> signIn(String phoneNumber, String password);
+  Future<UserModel> signIn(String phoneNumber, String password, String teacherId);
   Future<UserModel> signUp(
     String phoneNumber, 
     String password,
     String? name,
     DateTime? birthday,
     String? district,
+    String? teacherId,
   );
   Future<void> signOut();
   Future<UserModel> updateUser({
@@ -32,104 +33,143 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   });
 
   @override
-  Future<UserModel> signIn(String phoneNumber, String password) async {
+  Future<UserModel> signIn(String phoneNumber, String password, String teacherId) async {
     try {
-      print('🔐 AuthDataSource: Attempting sign in for phoneNumber: $phoneNumber');
+      print('🔐 [API REQUEST] AuthDataSource.signIn called with:');
+      print('🔐   - phoneNumber: $phoneNumber');
+      print('🔐   - teacherId: $teacherId');
+      print('🔐   - password: [HIDDEN]');
+      
+      print('🔐 [API REQUEST] Querying Firestore for user with phoneNumber: $phoneNumber and teacherId: $teacherId');
       
       final query = await firestore.collection('users')
         .where('phoneNumber', isEqualTo: phoneNumber)
+        .where('teacherId', isEqualTo: teacherId)
         .limit(1)
         .get();
       
+      print('🔐 [API RESPONSE] Found ${query.docs.length} user documents');
+      
       if (query.docs.isEmpty) {
-        print('❌ AuthDataSource: User not found for phoneNumber: $phoneNumber');
-        throw Exception('User not found');
+        print('🔐 [API ERROR] No user found with phoneNumber: $phoneNumber and teacherId: $teacherId');
+        throw Exception('Invalid credentials');
       }
       
       final userData = query.docs.first.data();
-      final documentId = query.docs.first.id;
+      print('🔐 [API RESPONSE] User document data: $userData');
+      print('🔐 [API RESPONSE] Available fields: ${userData.keys.toList()}');
+      print('🔐 [API RESPONSE] passwordHash: ${userData['passwordHash']}');
+      print('🔐 [API RESPONSE] passwordSalt: ${userData['passwordSalt']}');
+      print('🔐 [API RESPONSE] teacherId: ${userData['teacherId']}');
+      print('🔐 [API RESPONSE] phoneNumber: ${userData['phoneNumber']}');
+      print('🔐 [API RESPONSE] name: ${userData['name']}');
+      print('🔐 [API RESPONSE] district: ${userData['district']}');
+      print('🔐 [API RESPONSE] birthday: ${userData['birthday']}');
       
-      print('🔐 AuthDataSource: Found user document:');
-      print('🔐   - Document ID: $documentId');
-      print('🔐   - User data: $userData');
+      // Verify password - check if we have passwordHash and passwordSalt
+      final passwordHash = userData['passwordHash'] as String?;
+      final passwordSalt = userData['passwordSalt'] as String?;
       
-      // Verify password (supports new hashed scheme and legacy plaintext fallback)
-      final String? passwordHash = userData['passwordHash'] as String?;
-      final String? passwordSalt = userData['passwordSalt'] as String?;
-      if (passwordHash != null && passwordSalt != null) {
-        final computed = await cryptoService.hashPassword(password, passwordSalt);
-        if (computed != passwordHash) {
-          print('❌ AuthDataSource: Incorrect password (hashed) for phoneNumber: $phoneNumber');
-          throw Exception('Incorrect password');
-        }
-      } else {
-        // Legacy fallback
-        if (userData['password'] != password) {
-          print('❌ AuthDataSource: Incorrect password (legacy) for phoneNumber: $phoneNumber');
-          throw Exception('Incorrect password');
+      if (passwordHash == null || passwordSalt == null) {
+        print('🔐 [API ERROR] Password hash or salt not found for user with phoneNumber: $phoneNumber');
+        throw Exception('Invalid user data');
+      }
+      
+      // Hash the provided password with the stored salt and compare
+      final hashedPassword = await cryptoService.hashPassword(password, passwordSalt);
+      final isPasswordValid = hashedPassword == passwordHash;
+      
+      if (!isPasswordValid) {
+        print('🔐 [API ERROR] Invalid password for user with phoneNumber: $phoneNumber');
+        throw Exception('Invalid credentials');
+      }
+      
+      print('🔐 [API RESPONSE] Password verified successfully');
+      
+      // Safely extract fields with null checks
+      final extractedPhoneNumber = userData['phoneNumber'] as String? ?? '';
+      
+      // Try to get plain fields first, if not available, try to decrypt encrypted fields
+      String? name = userData['name'] as String?;
+      if (name == null || name.isEmpty) {
+        // Try to decrypt encrypted name
+        try {
+          final nameEnc = userData['nameEnc'] as String?;
+          final nameNonce = userData['nameNonce'] as String?;
+          final nameMac = userData['nameMac'] as String?;
+          if (nameEnc != null && nameNonce != null && nameMac != null) {
+            name = await cryptoService.decryptField(
+              ciphertextBase64: nameEnc,
+              nonceBase64: nameNonce,
+              macBase64: nameMac,
+            );
+          }
+        } catch (e) {
+          print('🔐 [API WARNING] Failed to decrypt name: $e');
+          name = '';
         }
       }
       
-      // Check if there's a specific userId field in the document
-      final actualUserId = userData['userId'] ?? userData['id'] ?? documentId;
-      
-      print('🔐 AuthDataSource: Using userId: $actualUserId');
-      print('🔐   - From userId field: ${userData['userId']}');
-      print('🔐   - From id field: ${userData['id']}');
-      print('🔐   - From document ID: $documentId');
-      
-      // Decrypt PII fields if encrypted; otherwise use plaintext
-      String? name;
-      String? district;
       DateTime? birthday;
       try {
-        if (userData['nameEnc'] != null && userData['nameNonce'] != null && userData['nameMac'] != null) {
-          name = await cryptoService.decryptField(
-            ciphertextBase64: userData['nameEnc'],
-            nonceBase64: userData['nameNonce'],
-            macBase64: userData['nameMac'],
-          );
+        final birthdayStr = userData['birthday'] as String?;
+        if (birthdayStr != null) {
+          birthday = DateTime.parse(birthdayStr);
         } else {
-          name = userData['name'];
-        }
-        if (userData['districtEnc'] != null && userData['districtNonce'] != null && userData['districtMac'] != null) {
-          district = await cryptoService.decryptField(
-            ciphertextBase64: userData['districtEnc'],
-            nonceBase64: userData['districtNonce'],
-            macBase64: userData['districtMac'],
-          );
-        } else {
-          district = userData['district'];
-        }
-        if (userData['birthdayEnc'] != null && userData['birthdayNonce'] != null && userData['birthdayMac'] != null) {
-          final bdayStr = await cryptoService.decryptField(
-            ciphertextBase64: userData['birthdayEnc'],
-            nonceBase64: userData['birthdayNonce'],
-            macBase64: userData['birthdayMac'],
-          );
-          birthday = DateTime.tryParse(bdayStr);
-        } else if (userData['birthday'] != null) {
-          birthday = DateTime.parse(userData['birthday']);
+          // Try to decrypt encrypted birthday
+          final birthdayEnc = userData['birthdayEnc'] as String?;
+          final birthdayNonce = userData['birthdayNonce'] as String?;
+          final birthdayMac = userData['birthdayMac'] as String?;
+          if (birthdayEnc != null && birthdayNonce != null && birthdayMac != null) {
+            final decryptedBirthday = await cryptoService.decryptField(
+              ciphertextBase64: birthdayEnc,
+              nonceBase64: birthdayNonce,
+              macBase64: birthdayMac,
+            );
+            birthday = DateTime.parse(decryptedBirthday);
+          }
         }
       } catch (e) {
-        print('⚠️ AuthDataSource: Decryption failed, falling back to plaintext fields if available. Error: $e');
-        name = name ?? userData['name'];
-        district = district ?? userData['district'];
-        if (birthday == null && userData['birthday'] != null) {
-          birthday = DateTime.tryParse(userData['birthday']);
+        print('🔐 [API WARNING] Failed to parse birthday: $e');
+        birthday = null;
+      }
+      
+      String? district = userData['district'] as String?;
+      if (district == null || district.isEmpty) {
+        // Try to decrypt encrypted district
+        try {
+          final districtEnc = userData['districtEnc'] as String?;
+          final districtNonce = userData['districtNonce'] as String?;
+          final districtMac = userData['districtMac'] as String?;
+          if (districtEnc != null && districtNonce != null && districtMac != null) {
+            district = await cryptoService.decryptField(
+              ciphertextBase64: districtEnc,
+              nonceBase64: districtNonce,
+              macBase64: districtMac,
+            );
+          }
+        } catch (e) {
+          print('🔐 [API WARNING] Failed to decrypt district: $e');
+          district = '';
         }
       }
-
-      return UserModel(
-        userId: actualUserId,
-        phoneNumber: userData['phoneNumber'],
-        password: '',
+      
+      final extractedTeacherId = userData['teacherId'] as String? ?? '';
+      
+      final userModel = UserModel(
+        userId: query.docs.first.id,
+        phoneNumber: extractedPhoneNumber,
+        password: '', // Don't store plain password in memory
         name: name,
         birthday: birthday,
         district: district,
+        teacherId: extractedTeacherId,
       );
+      
+      print('🔐 [API RESPONSE] Successfully created UserModel: ${userModel.name}');
+      return userModel;
     } catch (e) {
-      print('❌ AuthDataSource: Sign in failed: $e');
+      print('🔐 [API ERROR] Error during sign in: $e');
       throw Exception('Failed to sign in: ${e.toString()}');
     }
   }
@@ -141,6 +181,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     String? name,
     DateTime? birthday,
     String? district,
+    String? teacherId,
   ) async {
     try {
       // Check if user already exists
@@ -188,6 +229,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'phoneNumber': phoneNumber,
         'passwordHash': hashB64,
         'passwordSalt': saltB64,
+        'teacherId': teacherId,
         // keep plaintext fields absent to avoid leaking
         ...encryptedFields,
         'createdAt': FieldValue.serverTimestamp(),
@@ -199,6 +241,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         name: name,
         birthday: birthday,
         district: district,
+        teacherId: teacherId,
       );
     } catch (e) {
       throw Exception('Failed to sign up:  [${e.toString()}');

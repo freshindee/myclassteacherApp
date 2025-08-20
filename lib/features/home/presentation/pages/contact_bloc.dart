@@ -19,7 +19,7 @@ class ContactBloc extends Bloc<ContactEvent, ContactState> {
     Emitter<ContactState> emit,
   ) async {
     emit(ContactLoading());
-    final result = await getContacts(NoParams());
+    final result = await getContacts(event.teacherId);
     result.fold(
       (failure) => emit(ContactError(failure.toString())),
       (contacts) => emit(ContactLoaded(contacts)),

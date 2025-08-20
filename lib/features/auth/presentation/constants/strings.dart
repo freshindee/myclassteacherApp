@@ -6,4 +6,5 @@ class AppStrings {
   static const String noAccount = 'Don\'t have an account? ';
   static const String signUp = 'Sign Up';
   static const String phoneNumberHint = 'Whatsapp No';
+  static const String teacherIdHint = 'Teacher ID';
 } 

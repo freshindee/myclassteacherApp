@@ -14,6 +14,7 @@ class GetVideos implements UseCase<List<Video>, GetVideosParams> {
   Future<Either<Failure, List<Video>>> call(GetVideosParams params) async {
     print('🎬 GetVideos usecase called with parameters:');
     print('🎬   - userId: ${params.userId}');
+    print('🎬   - teacherId: ${params.teacherId}');
     print('🎬   - grade: ${params.grade}');
     print('🎬   - subject: ${params.subject}');
     print('🎬   - month: ${params.month}');
@@ -21,6 +22,7 @@ class GetVideos implements UseCase<List<Video>, GetVideosParams> {
     
     return await repository.getVideos(
       userId: params.userId,
+      teacherId: params.teacherId,
       grade: params.grade,
       subject: params.subject,
       month: params.month,
@@ -31,6 +33,7 @@ class GetVideos implements UseCase<List<Video>, GetVideosParams> {
 
 class GetVideosParams extends Equatable {
   final String? userId;
+  final String? teacherId;
   final String? grade;
   final String? subject;
   final int? month;
@@ -38,6 +41,7 @@ class GetVideosParams extends Equatable {
 
   const GetVideosParams({
     this.userId,
+    this.teacherId,
     this.grade,
     this.subject,
     this.month,
@@ -45,5 +49,5 @@ class GetVideosParams extends Equatable {
   });
 
   @override
-  List<Object?> get props => [userId, grade, subject, month, year];
+  List<Object?> get props => [userId, teacherId, grade, subject, month, year];
 } 

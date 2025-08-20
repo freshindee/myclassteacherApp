@@ -90,36 +90,30 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
   @override
   Future<List<PaymentModel>> getUserPayments(String userId) async {
     try {
-      print('🎬 PaymentDataSource.getUserPayments called with parameters:');
-      print('🎬   - userId: $userId');
-      print('🎬 Starting Firestore query on "payments" collection');
-      print('🎬 Applied filter: userId = $userId');
-      print('🎬 Applied filter: status = approved');
+      print('💰 [API REQUEST] PaymentDataSource.getUserPayments called with userId: $userId');
       
       final querySnapshot = await firestore
           .collection('payments')
           .where('userId', isEqualTo: userId)
-          .where('status', isEqualTo: 'approved')
+          .orderBy('createdAt', descending: true)
           .get();
-
-      print('🎬 PaymentDataSource: Found ${querySnapshot.docs.length} payment documents');
       
-      final payments = querySnapshot.docs
-          .map((doc) {
-            final data = doc.data();
-            print('🎬 Payment document ${doc.id}: $data');
-            return PaymentModel.fromJson({
-              'id': doc.id,
-              ...data,
-            });
-          })
-          .toList();
+      print('💰 [API RESPONSE] Found ${querySnapshot.docs.length} payment documents for userId: $userId');
       
-      print('🎬 PaymentDataSource: Successfully parsed ${payments.length} payments');
+      final payments = querySnapshot.docs.map((doc) {
+        final data = doc.data();
+        print('💰 [API RESPONSE] Payment document ${doc.id}: $data');
+        return PaymentModel.fromJson({
+          'id': doc.id,
+          ...data,
+        });
+      }).toList();
+      
+      print('💰 [API RESPONSE] Successfully parsed ${payments.length} payments');
       return payments;
     } catch (e) {
-      print('❌ PaymentDataSource: Error fetching payments: $e');
-      throw Exception('Failed to get user payments: $e');
+      print('💰 [API ERROR] Error fetching user payments: $e');
+      throw Exception('Failed to fetch user payments: $e');
     }
   }
 } 
