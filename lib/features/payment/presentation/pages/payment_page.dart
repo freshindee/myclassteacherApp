@@ -8,8 +8,9 @@ import 'dart:typed_data';
 
 class PaymentPage extends StatefulWidget {
   final String userId;
+  final String teacherId;
   
-  const PaymentPage({super.key, required this.userId});
+  const PaymentPage({super.key, required this.userId, required this.teacherId});
 
   @override
   State<PaymentPage> createState() => _PaymentPageState();
@@ -33,6 +34,8 @@ class _PaymentPageState extends State<PaymentPage> {
   void initState() {
     super.initState();
     _calculateAmount();
+    // Load pay account details when the page initializes
+    context.read<PaymentBloc>().add(LoadPayAccountDetails(widget.teacherId));
   }
 
   void _calculateAmount() {
@@ -443,65 +446,90 @@ class _PaymentPageState extends State<PaymentPage> {
 
                   // Add spacing before the image
                   const SizedBox(height: 32),
-                  // Display the account image at the bottom
-                  Center(
-                    child: Image.asset(
-                      'assets/images/accounts_sajith.jpeg',
-                      fit: BoxFit.contain,
-                      width: 300,
-                      // height: 200, // Optionally set a max height
-                    ),
+                  
+                  // Display the dynamic account image from database
+                  BlocBuilder<PaymentBloc, PaymentState>(
+                    builder: (context, state) {
+                      if (state is PayAccountDetailsLoading) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      } else if (state is PayAccountDetailsLoaded) {
+                        return Center(
+                          child: Image.network(
+                            state.sliderImageUrl,
+                            fit: BoxFit.contain,
+                            width: double.infinity,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.error_outline, size: 64, color: Colors.red),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'Failed to load account image',
+                                      style: TextStyle(fontSize: 16),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      } else if (state is PayAccountDetailsError) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                              const SizedBox(height: 16),
+                              Text(
+                                state.message,
+                                style: const TextStyle(fontSize: 16),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () {
+                                  context.read<PaymentBloc>().add(LoadPayAccountDetails(widget.teacherId));
+                                },
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        );
+                      } else {
+                        // Show a placeholder or loading state
+                        return const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.image, size: 64, color: Colors.grey),
+                              SizedBox(height: 16),
+                              Text(
+                                'Loading account details...',
+                                style: TextStyle(fontSize: 16),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    },
                   ),
-                  const SizedBox(height: 24),
-                  // Display the account image at the bottom
-                  Center(
-                    child: Image.asset(
-                      'assets/images/acc_arun.jpeg',
-                      fit: BoxFit.contain,
-                      width: 300,
-                      // height: 200, // Optionally set a max height
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Display the account image at the bottom
-                  Center(
-                    child: Image.asset(
-                      'assets/images/acc_mahe.jpeg',
-                      fit: BoxFit.contain,
-                      width: 300,
-                      // height: 200, // Optionally set a max dfgheight
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Display the account image at the bottom
-                  Center(
-                    child: Image.asset(
-                      'assets/images/acc_mana.jpeg',
-                      fit: BoxFit.contain,
-                      width: 300,
-                      // height: 200, // Optionally set a max height
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Display the account image at the bottom
-                  Center(
-                    child: Image.asset(
-                      'assets/images/acc_indi.jpeg',
-                      fit: BoxFit.contain,
-                      width: 300,
-                      // height: 200, // Optionally set a max height
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Display the account image at the bottom
-                  Center(
-                    child: Image.asset(
-                      'assets/images/acc_samu.jpeg',
-                      fit: BoxFit.contain,
-                      width: 300,
-                      // height: 200, // Optionally set a max height
-                    ),
-                  ),
+                  
                   const SizedBox(height: 24),
                 ],
               ),

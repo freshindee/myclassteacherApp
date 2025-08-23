@@ -44,6 +44,7 @@ import 'features/payment/data/repositories/payment_repository_impl.dart';
 import 'features/payment/domain/repositories/payment_repository.dart';
 import 'features/payment/domain/usecases/create_payment.dart';
 import 'features/payment/domain/usecases/check_access.dart';
+import 'features/payment/domain/usecases/get_pay_account_details.dart';
 import 'features/payment/presentation/bloc/payment_bloc.dart';
 import 'features/payment/domain/usecases/get_user_subscriptions.dart';
 import 'features/payment/domain/usecases/get_user_payments.dart';
@@ -66,6 +67,11 @@ import 'features/home/data/datasources/term_test_paper_remote_data_source.dart';
 import 'features/home/data/repositories/term_test_paper_repository_impl.dart';
 import 'features/home/domain/repositories/term_test_paper_repository.dart';
 import 'features/home/domain/usecases/get_term_test_papers.dart';
+import 'features/home/data/datasources/slider_remote_data_source.dart';
+import 'features/home/data/repositories/slider_repository_impl.dart';
+import 'features/home/domain/repositories/slider_repository.dart';
+import 'features/home/domain/usecases/get_slider_images.dart';
+import 'features/home/presentation/bloc/slider_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -99,6 +105,7 @@ void init() {
     () => PaymentBloc(
       createPayment: sl(),
       checkAccess: sl(),
+      getPayAccountDetails: sl(),
     ),
   );
   sl.registerFactory(
@@ -133,6 +140,11 @@ void init() {
       getTimetableByGrade: sl(),
     ),
   );
+  sl.registerFactory(
+    () => SliderBloc(
+      getSliderImages: sl(),
+    ),
+  );
 
   // Use cases
   sl.registerLazySingleton(() => SignIn(sl()));
@@ -150,12 +162,14 @@ void init() {
   sl.registerLazySingleton(() => AddVideo(sl()));
   sl.registerLazySingleton(() => CreatePayment(sl()));
   sl.registerLazySingleton(() => CheckAccess(sl()));
+  sl.registerLazySingleton(() => GetPayAccountDetails(sl()));
   sl.registerLazySingleton(() => GetUserSubscriptions(sl()));
   sl.registerLazySingleton(() => GetUserPayments(sl()));
   sl.registerLazySingleton(() => GetFreeVideos(sl()));
   sl.registerLazySingleton(() => GetFreeVideosByGrade(sl()));
   sl.registerLazySingleton(() => GetTeachers(sl()));
   sl.registerLazySingleton(() => GetTermTestPapers(sl()));
+  sl.registerLazySingleton(() => GetSliderImages(sl()));
 
   // Repositories
   sl.registerLazySingleton<AuthRepository>(
@@ -218,6 +232,12 @@ void init() {
       networkInfo: sl(),
     ),
   );
+  sl.registerLazySingleton<SliderRepository>(
+    () => SliderRepositoryImpl(
+      remoteDataSource: sl(),
+      networkInfo: sl(),
+    ),
+  );
 
   // Data sources
   sl.registerLazySingleton<AuthRemoteDataSource>(
@@ -252,6 +272,9 @@ void init() {
   );
   sl.registerLazySingleton<TermTestPaperRemoteDataSource>(
     () => TermTestPaperRemoteDataSourceImpl(firestore: sl()),
+  );
+  sl.registerLazySingleton<SliderRemoteDataSource>(
+    () => SliderRemoteDataSourceImpl(firestore: sl()),
   );
 
   // Core

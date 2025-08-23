@@ -21,7 +21,7 @@ import 'term_test_papers_page.dart';
 import '../bloc/term_test_paper_bloc.dart';
 import '../../domain/usecases/get_term_test_papers.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../bloc/slider_bloc.dart';
 import '../../../auth/presentation/pages/profile_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -32,43 +32,11 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  List<String> _imageUrls = [];
-  bool _isLoading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchSliderImages();
-  }
-
-  Future<void> _fetchSliderImages() async {
-    try {
-      final querySnapshot = await FirebaseFirestore.instance.collection('slider').get();
-      final urls = querySnapshot.docs
-          .map((doc) => doc.data()['image'] as String?)
-          .where((image) => image != null && image.isNotEmpty)
-          .cast<String>()
-          .toList();
-      if (!mounted) return;
-      setState(() {
-        _imageUrls = urls;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = 'Failed to load slider images';
-        _isLoading = false;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Schoooly App'),
+        title: const Text('My Class Teacher'),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
@@ -96,50 +64,106 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (_isLoading)
-                  const SizedBox(
-                    height: 180,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (_error != null)
-                  SizedBox(
-                    height: 180,
-                    child: Center(child: Text(_error!, style: const TextStyle(color: Colors.red))),
-                  )
-                else if (_imageUrls.isEmpty)
-                  const SizedBox(
-                    height: 180,
-                    child: Center(child: Text('No slider images found')),
-                  )
-                else
-                  CarouselSlider(
-                    options: CarouselOptions(
-                      height: 180,
-                      autoPlay: true,
-                      enlargeCenterPage: true,
-                      viewportFraction: 1.0,
-                      aspectRatio: 16/9,
-                      autoPlayInterval: const Duration(seconds: 4),
-                    ),
-                    items: _imageUrls.map((url) {
-                      return Builder(
-                        builder: (BuildContext context) {
-                          return Image.network(
-                            url,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            loadingBuilder: (context, child, progress) {
-                              if (progress == null) return child;
-                              return Center(child: CircularProgressIndicator(value: progress.expectedTotalBytes != null ? progress.cumulativeBytesLoaded / (progress.expectedTotalBytes ?? 1) : null));
-                            },
-                            errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image, size: 64, color: Colors.grey)),
-                          );
-                        },
+                // Slider Section with BlocBuilder
+                BlocBuilder<AuthBloc, AuthState>(
+                  builder: (context, authState) {
+                    final teacherId = authState.user?.teacherId;
+                    if (teacherId == null || teacherId.isEmpty) {
+                      return const SizedBox(
+                        height: 180,
+                        child: Center(child: Text('Please login to view slider images')),
                       );
-                    }).toList(),
-                  ),
+                    }
+                    
+                    return BlocProvider(
+                      create: (context) => sl<SliderBloc>()..add(LoadSliderImages(teacherId)),
+                      child: BlocBuilder<SliderBloc, SliderState>(
+                        builder: (context, sliderState) {
+                          if (sliderState is SliderLoading) {
+                            return const SizedBox(
+                              height: 180,
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          } else if (sliderState is SliderError) {
+                            return SizedBox(
+                              height: 180,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      sliderState.message,
+                                      style: const TextStyle(color: Colors.red),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        context.read<SliderBloc>().add(LoadSliderImages(teacherId));
+                                      },
+                                      child: const Text('Retry'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          } else if (sliderState is SliderLoaded) {
+                            if (sliderState.sliderImages.isEmpty) {
+                              return const SizedBox(
+                                height: 180,
+                                child: Center(child: Text('No slider images found for this teacher')),
+                              );
+                            }
+                            
+                            return CarouselSlider(
+                              options: CarouselOptions(
+                                height: 180,
+                                autoPlay: true,
+                                enlargeCenterPage: true,
+                                viewportFraction: 1.0,
+                                aspectRatio: 16/9,
+                                autoPlayInterval: const Duration(seconds: 4),
+                              ),
+                              items: sliderState.sliderImages.map((sliderImage) {
+                                return Builder(
+                                  builder: (BuildContext context) {
+                                    return Image.network(
+                                      sliderImage.imageUrl,
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      loadingBuilder: (context, child, progress) {
+                                        if (progress == null) return child;
+                                        return Center(
+                                          child: CircularProgressIndicator(
+                                            value: progress.expectedTotalBytes != null 
+                                                ? progress.cumulativeBytesLoaded / (progress.expectedTotalBytes ?? 1) 
+                                                : null
+                                          ),
+                                        );
+                                      },
+                                      errorBuilder: (context, error, stackTrace) => const Center(
+                                        child: Icon(Icons.broken_image, size: 64, color: Colors.grey)
+                                      ),
+                                    );
+                                  },
+                                );
+                              }).toList(),
+                            );
+                          } else {
+                            return const SizedBox(
+                              height: 180,
+                              child: Center(child: Text('Loading slider images...')),
+                            );
+                          }
+                        },
+                      ),
+                    );
+                  },
+                ),
+                
                 const SizedBox(height: 20),
-
 
                 // Main Menu Grid
                 GridView.count(
@@ -209,12 +233,13 @@ class _HomePageState extends State<HomePage> {
                       () {
                         final authState = context.read<AuthBloc>().state;
                         final userId = authState.user?.userId ?? '1'; // Fallback to '1' if no user
+                        final teacherId = authState.user?.teacherId ?? ''; // Get teacherId from auth state
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => BlocProvider(
                               create: (_) => sl<PaymentBloc>(),
-                              child: PaymentPage(userId: userId),
+                              child: PaymentPage(userId: userId, teacherId: teacherId),
                             ),
                           ),
                         );

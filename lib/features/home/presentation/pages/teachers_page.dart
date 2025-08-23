@@ -22,7 +22,7 @@ class TeachersPage extends StatelessWidget {
           create: (context) => sl<TeachersBloc>()..add(LoadTeachers(teacherId)),
           child: Scaffold(
             appBar: AppBar(
-              title: const Text('Our Teachers'),
+              title: const Text('Teachers'),
               backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
             ),

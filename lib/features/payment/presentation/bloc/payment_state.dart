@@ -29,4 +29,24 @@ class AccessChecked extends PaymentState {
 
   @override
   List<Object> get props => [hasAccess];
+}
+
+class PayAccountDetailsLoading extends PaymentState {}
+
+class PayAccountDetailsLoaded extends PaymentState {
+  final String sliderImageUrl;
+
+  const PayAccountDetailsLoaded(this.sliderImageUrl);
+
+  @override
+  List<Object> get props => [sliderImageUrl];
+}
+
+class PayAccountDetailsError extends PaymentState {
+  final String message;
+
+  const PayAccountDetailsError(this.message);
+
+  @override
+  List<Object> get props => [message];
 } 

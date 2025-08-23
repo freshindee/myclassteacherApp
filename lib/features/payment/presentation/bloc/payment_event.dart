@@ -47,4 +47,13 @@ class CheckAccessRequested extends PaymentEvent {
 
   @override
   List<Object> get props => [userId, grade, subject, month, year];
+}
+
+class LoadPayAccountDetails extends PaymentEvent {
+  final String teacherId;
+
+  const LoadPayAccountDetails(this.teacherId);
+
+  @override
+  List<Object> get props => [teacherId];
 } 

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/payment_model.dart';
 import '../models/subscription_model.dart';
+import '../models/pay_account_details_model.dart';
 import '../../domain/entities/payment.dart';
 
 abstract class PaymentRemoteDataSource {
@@ -8,6 +9,7 @@ abstract class PaymentRemoteDataSource {
   Future<bool> hasAccess(String userId, String grade, String subject, int month, int year);
   Future<List<SubscriptionModel>> getUserSubscriptions(String userId);
   Future<List<PaymentModel>> getUserPayments(String userId);
+  Future<PayAccountDetailsModel?> getPayAccountDetails(String teacherId);
 }
 
 class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
@@ -114,6 +116,41 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
     } catch (e) {
       print('💰 [API ERROR] Error fetching user payments: $e');
       throw Exception('Failed to fetch user payments: $e');
+    }
+  }
+
+  @override
+  Future<PayAccountDetailsModel?> getPayAccountDetails(String teacherId) async {
+    try {
+      print('💰 [API REQUEST] PaymentDataSource.getPayAccountDetails called with teacherId: $teacherId');
+      
+      final querySnapshot = await firestore
+          .collection('pay_account_details')
+          .where('teacherId', isEqualTo: teacherId)
+          .limit(1)
+          .get();
+      
+      print('💰 [API RESPONSE] Found ${querySnapshot.docs.length} pay account detail documents for teacherId: $teacherId');
+      
+      if (querySnapshot.docs.isEmpty) {
+        print('💰 [API RESPONSE] No pay account details found for teacherId: $teacherId');
+        return null;
+      }
+      
+      final doc = querySnapshot.docs.first;
+      final data = doc.data();
+      print('💰 [API RESPONSE] Pay account detail document ${doc.id}: $data');
+      
+      final payAccountDetails = PayAccountDetailsModel.fromJson({
+        'id': doc.id,
+        ...data,
+      });
+      
+      print('💰 [API RESPONSE] Successfully parsed pay account details: ${payAccountDetails.slider1Url}');
+      return payAccountDetails;
+    } catch (e) {
+      print('💰 [API ERROR] Error fetching pay account details: $e');
+      throw Exception('Failed to fetch pay account details: $e');
     }
   }
 } 

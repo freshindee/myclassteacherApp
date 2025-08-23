@@ -138,105 +138,10 @@ Stores resources with access control:
 Navigator.push(
   context,
   MaterialPageRoute(
-    builder: (context) => PaymentPage(userId: currentUserId),
+    builder: (context) => PaymentPage(userId: currentUserId, teacherId: currentTeacherId),
   ),
 );
 ```
 
 ### Checking Access
-```dart
-// Check if user has access to specific resources
-final hasAccess = await checkAccess(
-  CheckAccessParams(
-    userId: userId,
-    grade: 'Grade 10',
-    subject: 'Mathematics',
-    month: 'January',
-    year: 2024,
-  ),
-);
 ```
-
-### Filtering Resources
-```dart
-// Filter videos based on user's subscriptions
-final accessibleVideos = videos.where((video) {
-  return video.accessLevel == 'free' || 
-         userSubscriptions.any((sub) => 
-           sub.grade == video.grade && 
-           sub.subject == video.subject &&
-           sub.month == video.month &&
-           sub.year == video.year
-         );
-}).toList();
-```
-
-## Security Rules (Firestore)
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Users can only read their own payments
-    match /payments/{paymentId} {
-      allow read, write: if request.auth != null && 
-        request.auth.uid == resource.data.userId;
-    }
-    
-    // Users can only read their own subscriptions
-    match /subscriptions/{subscriptionId} {
-      allow read: if request.auth != null && 
-        request.auth.uid == resource.data.userId;
-    }
-    
-    // Users can only read/write their own profile
-    match /user_profiles/{userId} {
-      allow read, write: if request.auth != null && 
-        request.auth.uid == userId;
-    }
-    
-    // Resources are readable by all authenticated users
-    match /resources/{resourceId} {
-      allow read: if request.auth != null;
-    }
-  }
-}
-```
-
-## Future Enhancements
-
-1. **Payment Gateway Integration**: Integrate with Stripe, PayPal, or local payment gateways
-2. **Subscription Renewal**: Automatic renewal notifications and processing
-3. **Bulk Payments**: Allow payment for multiple months/subjects at once
-4. **Discount System**: Implement student discounts and promotional codes
-5. **Payment History**: Detailed payment history and receipts
-6. **Admin Panel**: Admin interface for managing payments and subscriptions
-7. **Analytics**: Payment analytics and revenue tracking
-
-## Testing
-
-### Unit Tests
-- Test payment creation logic
-- Test access control logic
-- Test subscription validation
-
-### Integration Tests
-- Test Firestore operations
-- Test payment flow end-to-end
-- Test access control with real data
-
-### UI Tests
-- Test payment page interactions
-- Test access control UI behavior
-- Test error handling and user feedback
-
-## Deployment Considerations
-
-1. **Environment Variables**: Store payment gateway credentials securely
-2. **Error Handling**: Implement comprehensive error handling for payment failures
-3. **Logging**: Log all payment transactions for audit purposes
-4. **Backup**: Regular backup of payment and subscription data
-5. **Monitoring**: Monitor payment success rates and system performance
-6. **Compliance**: Ensure compliance with local payment regulations
-
-This implementation provides a robust foundation for a payment and access control system that can scale with your application's needs. 

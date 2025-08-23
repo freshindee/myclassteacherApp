@@ -4,8 +4,10 @@ import 'package:equatable/equatable.dart';
 import 'package:uuid/uuid.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/entities/subscription.dart';
+import '../../domain/entities/pay_account_details.dart';
 import '../../domain/usecases/create_payment.dart';
 import '../../domain/usecases/check_access.dart';
+import '../../domain/usecases/get_pay_account_details.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases.dart';
 import '../../../../core/utils/month_utils.dart';
@@ -15,13 +17,16 @@ part 'payment_state.dart';
 class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
   final CreatePayment createPayment;
   final CheckAccess checkAccess;
+  final GetPayAccountDetails getPayAccountDetails;
 
   PaymentBloc({
     required this.createPayment,
     required this.checkAccess,
+    required this.getPayAccountDetails,
   }) : super(PaymentInitial()) {
     on<CreatePaymentRequested>(_onCreatePaymentRequested);
     on<CheckAccessRequested>(_onCheckAccessRequested);
+    on<LoadPayAccountDetails>(_onLoadPayAccountDetails);
   }
 
   Future<void> _onCreatePaymentRequested(
@@ -106,6 +111,33 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     result.fold(
       (failure) => emit(PaymentFailure(failure.message)),
       (hasAccess) => emit(AccessChecked(hasAccess)),
+    );
+  }
+
+  Future<void> _onLoadPayAccountDetails(
+    LoadPayAccountDetails event,
+    Emitter<PaymentState> emit,
+  ) async {
+    emit(PayAccountDetailsLoading());
+
+    print('💰 [BLOC] PaymentBloc: Loading pay account details for teacherId: ${event.teacherId}');
+
+    final result = await getPayAccountDetails(event.teacherId);
+    
+    result.fold(
+      (failure) {
+        print('💰 [BLOC ERROR] Failed to load pay account details: ${failure.message}');
+        emit(PayAccountDetailsError(failure.message));
+      },
+      (payAccountDetails) {
+        if (payAccountDetails != null) {
+          print('💰 [BLOC] Successfully loaded pay account details with slider URL: ${payAccountDetails.slider1Url}');
+          emit(PayAccountDetailsLoaded(payAccountDetails.slider1Url));
+        } else {
+          print('💰 [BLOC] No pay account details found for teacherId: ${event.teacherId}');
+          emit(const PayAccountDetailsError('No account details found for this teacher'));
+        }
+      },
     );
   }
 } 
