@@ -32,11 +32,14 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  int _currentIndex = 0;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Class Teacher'),
+        centerTitle: true,
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
@@ -269,33 +272,6 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
-                   _buildMenuCard(
-                     context,
-                     'වාර විභාග ප්‍රශ්න පත්‍ර',
-                     Icons.description,
-                     Colors.deepPurple,
-                     () => Navigator.push(
-                       context,
-                       MaterialPageRoute(
-                         builder: (context) => BlocProvider(
-                           create: (_) => TermTestPaperBloc(getTermTestPapers: sl<GetTermTestPapers>())..add(FetchTermTestPapers(teacherId: context.read<AuthBloc>().state.user?.teacherId ?? '')),
-                           child: const TermTestPapersPage(),
-                         ),
-                       ),
-                     ),
-                   ),
-                    _buildMenuCard(
-                      context,
-                      'අපි සමඟ සම්බන්ධ වන්න',
-                      Icons.contact_page,
-                      Colors.blue,
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const DisplayContactDetailsPage(),
-                        ),
-                      ),
-                    ),
                     _buildMenuCard(
                       context,
                       'පසුගිය මාසවල රෙකෝඩින්',
@@ -317,6 +293,52 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+          
+          switch (index) {
+            case 0: // Home - already on home page
+              break;
+            case 1: // Contact Us
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const DisplayContactDetailsPage(),
+                ),
+              );
+              break;
+            case 2: // Profile
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ProfilePage(),
+                ),
+              );
+              break;
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.contact_page),
+            label: 'Contact Us',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
       ),
     );
   }
@@ -345,7 +367,7 @@ class _HomePageState extends State<HomePage> {
             Text(
               title,
               style: const TextStyle(
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,

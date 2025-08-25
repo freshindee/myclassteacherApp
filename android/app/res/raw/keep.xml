@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:shrinkMode="strict"
+    tools:keep="@layout/activity_main,@layout/fragment_home,@layout/fragment_profile,@layout/fragment_settings,@drawable/ic_launcher,@drawable/ic_launcher_round,@mipmap/ic_launcher,@mipmap/ic_launcher_round,@values/strings,@values/colors,@values/themes" />
