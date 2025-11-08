@@ -27,12 +27,26 @@ class OldVideosBloc extends Bloc<OldVideosEvent, OldVideosState> {
 
     try {
       final now = DateTime.now();
-      final currentYear = now.year;
-      final currentMonth = now.month;
+      final currentYear = event.year ?? now.year;
+      final currentMonth = event.month ?? now.month;
       
-      // Fetch all old videos for the user (no filters)
+      // Extract grade number from "Grade X" format if needed
+      String? gradeValue = event.grade;
+      if (gradeValue != null && gradeValue.contains('Grade')) {
+        gradeValue = gradeValue.replaceAll(RegExp(r'[^0-9]'), '');
+      }
+      
+      // Fetch videos with the provided filters
       final videosResult = await getVideos(
-        GetVideosParams(userId: event.userId, teacherId: event.teacherId, grade: event.grade),
+        GetVideosParams(
+          userId: event.userId,
+          teacherId: event.teacherId,
+          grade: gradeValue,
+          subject: event.subject,
+          month: currentMonth,
+          year: currentYear,
+          // Don't filter by accessLevel to get both paid and free videos
+        ),
       ).timeout(const Duration(seconds: 60), onTimeout: () {
         throw Exception('Timeout while fetching videos');
       });
@@ -44,16 +58,9 @@ class OldVideosBloc extends Bloc<OldVideosEvent, OldVideosState> {
         },
         (videos) async {
           developer.log('DEBUG-----------: Successfully fetched ${videos.length} total videos.', name: 'OldVideosBloc');
-          
-          // Filter for past months of the current year
-          final pastVideos = videos.where((video) {
-            return video.year == currentYear && video.month != null && video.month! < currentMonth;
-          }).toList();
-
-          developer.log('DEBUG-----------: Filtered to ${pastVideos.length} past videos.', name: 'OldVideosBloc');
-          developer.log('Fetched videos: ' + pastVideos.map((v) => 'title=${v.title}, thumb=${v.thumb}, url=${v.youtubeUrl}').join('; '), name: 'OldVideosBloc');
+          developer.log('Fetched videos: ' + videos.map((v) => 'title=${v.title}, thumb=${v.thumb}, url=${v.youtubeUrl}').join('; '), name: 'OldVideosBloc');
           developer.log('DEBUG-----------: Emitting OldVideosLoaded state.', name: 'OldVideosBloc');
-          emit(OldVideosLoaded(videos: pastVideos));
+          emit(OldVideosLoaded(videos: videos));
         },
       );
     } catch (e, stack) {

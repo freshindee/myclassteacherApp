@@ -32,8 +32,15 @@ class TimetableRepositoryImpl implements TimetableRepository {
           subject: model.subject,
           day: model.day,
           time: model.time,
+          teacher: model.teacher,
+          teacherId: model.teacherId,
+          room: model.room,
+          description: model.description,
           index: model.index,
+          time2: model.time2,
+          time3: model.time3,
           displayId: model.displayId,
+          topic: model.topic,
         )).toList();
         
         print('📅 [REPOSITORY] Successfully converted ${timetables.length} timetable models to entities for grade $grade');

@@ -9,8 +9,12 @@ class AuthState extends Equatable {
   final String teacherId;
   final FormzStatus status;
   final String? errorMessage;
+  final String? teacherIdError;
+  final String? phoneNumberError;
+  final String? passwordError;
   final User? user;
   final bool isLogout;
+  final bool hasSubmitted;
 
   const AuthState({
     this.phoneNumber = '',
@@ -21,8 +25,12 @@ class AuthState extends Equatable {
     this.teacherId = '',
     this.status = FormzStatus.pure,
     this.errorMessage,
+    this.teacherIdError,
+    this.phoneNumberError,
+    this.passwordError,
     this.user,
     this.isLogout = false,
+    this.hasSubmitted = false,
   });
 
   AuthState copyWith({
@@ -34,8 +42,16 @@ class AuthState extends Equatable {
     String? teacherId,
     FormzStatus? status,
     String? errorMessage,
+    String? teacherIdError,
+    String? phoneNumberError,
+    String? passwordError,
     User? user,
     bool? isLogout,
+    bool? hasSubmitted,
+    bool clearTeacherIdError = false,
+    bool clearPhoneNumberError = false,
+    bool clearPasswordError = false,
+    bool clearErrorMessage = false,
   }) {
     return AuthState(
       phoneNumber: phoneNumber ?? this.phoneNumber,
@@ -45,12 +61,31 @@ class AuthState extends Equatable {
       district: district ?? this.district,
       teacherId: teacherId ?? this.teacherId,
       status: status ?? this.status,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      teacherIdError: clearTeacherIdError ? null : (teacherIdError ?? this.teacherIdError),
+      phoneNumberError: clearPhoneNumberError ? null : (phoneNumberError ?? this.phoneNumberError),
+      passwordError: clearPasswordError ? null : (passwordError ?? this.passwordError),
       user: user ?? this.user,
       isLogout: isLogout ?? this.isLogout,
+      hasSubmitted: hasSubmitted ?? this.hasSubmitted,
     );
   }
 
   @override
-  List<Object?> get props => [phoneNumber, password, name, birthday, district, teacherId, status, errorMessage, user, isLogout];
+  List<Object?> get props => [
+    phoneNumber,
+    password,
+    name,
+    birthday,
+    district,
+    teacherId,
+    status,
+    errorMessage,
+    teacherIdError,
+    phoneNumberError,
+    passwordError,
+    user,
+    isLogout,
+    hasSubmitted,
+  ];
 }

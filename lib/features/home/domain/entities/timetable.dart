@@ -14,6 +14,7 @@ class Timetable extends Equatable {
   final String? time2;
   final String? time3;
   final int? displayId;
+  final String? topic;
 
   const Timetable({
     required this.id,
@@ -29,6 +30,7 @@ class Timetable extends Equatable {
     this.time2,
     this.time3,
     this.displayId,
+    this.topic,
   });
 
   @override
@@ -38,12 +40,14 @@ class Timetable extends Equatable {
         subject,
         day,
         time,
-        teacher,teacherId,
+        teacher,
+        teacherId,
         room,
         description,
         index,
         time2,
         time3,
         displayId,
+        topic,
       ];
 } 

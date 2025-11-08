@@ -8,7 +8,7 @@ abstract class PaymentRemoteDataSource {
   Future<void> createPayment(Payment payment);
   Future<bool> hasAccess(String userId, String grade, String subject, int month, int year);
   Future<List<SubscriptionModel>> getUserSubscriptions(String userId);
-  Future<List<PaymentModel>> getUserPayments(String userId);
+  Future<List<PaymentModel>> getUserPayments(String userId, {String? teacherId});
   Future<PayAccountDetailsModel?> getPayAccountDetails(String teacherId);
 }
 
@@ -90,17 +90,32 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
   }
 
   @override
-  Future<List<PaymentModel>> getUserPayments(String userId) async {
+  Future<List<PaymentModel>> getUserPayments(String userId, {String? teacherId}) async {
     try {
-      print('💰 [API REQUEST] PaymentDataSource.getUserPayments called with userId: $userId');
+      print('💰 [API REQUEST] PaymentDataSource.getUserPayments called with userId: $userId, teacherId: $teacherId');
       
-      final querySnapshot = await firestore
+      Query<Map<String, dynamic>> query = firestore
           .collection('payments')
-          .where('userId', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
-          .get();
+          .where('userId', isEqualTo: userId);
       
-      print('💰 [API RESPONSE] Found ${querySnapshot.docs.length} payment documents for userId: $userId');
+      // Filter by teacherId if provided
+      if (teacherId != null && teacherId.isNotEmpty) {
+        query = query.where('teacherId', isEqualTo: teacherId);
+        print('💰 [API REQUEST] Applied filter: teacherId = $teacherId');
+      }
+      
+      // When filtering by teacherId, we can't use orderBy without a composite index
+      // So we'll fetch without orderBy and sort in memory
+      QuerySnapshot<Map<String, dynamic>> querySnapshot;
+      if (teacherId != null && teacherId.isNotEmpty) {
+        // Fetch without orderBy to avoid index requirement
+        querySnapshot = await query.get();
+      } else {
+        // When only userId filter, we can use orderBy
+        querySnapshot = await query.orderBy('createdAt', descending: true).get();
+      }
+      
+      print('💰 [API RESPONSE] Found ${querySnapshot.docs.length} payment documents for userId: $userId${teacherId != null ? ', teacherId: $teacherId' : ''}');
       
       final payments = querySnapshot.docs.map((doc) {
         final data = doc.data();
@@ -110,6 +125,11 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
           ...data,
         });
       }).toList();
+      
+      // Sort by createdAt descending if we fetched without orderBy
+      if (teacherId != null && teacherId.isNotEmpty) {
+        payments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      }
       
       print('💰 [API RESPONSE] Successfully parsed ${payments.length} payments');
       return payments;

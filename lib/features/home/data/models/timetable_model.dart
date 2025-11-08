@@ -15,6 +15,7 @@ class TimetableModel extends Equatable {
   final String? time2;
   final String? time3;
   final int? displayId;
+  final String? topic;
 
   const TimetableModel({
     required this.id,
@@ -30,6 +31,7 @@ class TimetableModel extends Equatable {
     this.time2,
     this.time3,
     this.displayId,
+    this.topic,
   });
 
   @override
@@ -39,12 +41,15 @@ class TimetableModel extends Equatable {
         subject,
         day,
         time,
-        teacher,teacherId,
+        teacher,
+        teacherId,
         room,
         description,
         index,
         time2,
         time3,
+        displayId,
+        topic,
       ];
 
   factory TimetableModel.fromJson(Map<String, dynamic> json) {
@@ -64,6 +69,7 @@ class TimetableModel extends Equatable {
       displayId: json['display_id'] is int
           ? json['display_id']
           : int.tryParse(json['display_id']?.toString() ?? ''),
+      topic: json['topic'] as String?,
     );
   }
 
@@ -82,6 +88,7 @@ class TimetableModel extends Equatable {
       'time2': time2,
       'time3': time3,
       'display_id': displayId,
+      'topic': topic,
     };
   }
 
@@ -100,6 +107,7 @@ class TimetableModel extends Equatable {
       time2: time2,
       time3: time3,
       displayId: displayId,
+      topic: topic,
     );
   }
 } 

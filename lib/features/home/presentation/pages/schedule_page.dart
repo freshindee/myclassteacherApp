@@ -4,96 +4,210 @@ import '../../../../injection_container.dart';
 import '../../domain/entities/timetable.dart';
 import 'schedule_bloc.dart';
 import '../../../../core/services/user_session_service.dart';
+import '../../../../core/services/master_data_service.dart';
 
-class SchedulePage extends StatelessWidget {
+class SchedulePage extends StatefulWidget {
   const SchedulePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: UserSessionService.getCurrentUser(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+  State<SchedulePage> createState() => _SchedulePageState();
+}
+
+class _SchedulePageState extends State<SchedulePage> {
+  List<String> _grades = [];
+  bool _isLoadingGrades = true;
+  String? _teacherId;
+  String? _selectedGrade;
+  bool _showTimetable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTeacherId();
+    _loadGrades();
+  }
+
+  Future<void> _loadTeacherId() async {
+    final user = await UserSessionService.getCurrentUser();
+    setState(() {
+      _teacherId = user?.teacherId ?? '';
+    });
+  }
+
+  Future<void> _loadGrades() async {
+    setState(() {
+      _isLoadingGrades = true;
+    });
+    
+    try {
+      print('📅 [DEBUG] SchedulePage - Starting to load grades from master data');
+      
+      // First try to get from teacher master data (master_teacher collection)
+      final masterData = await MasterDataService.getTeacherMasterData();
+      print('📅 [DEBUG] SchedulePage - Master data result: ${masterData != null ? "Found" : "Not found"}');
+      
+      if (masterData != null) {
+        print('📅 [DEBUG] SchedulePage - Master data teacherId: ${masterData.teacherId}');
+        print('📅 [DEBUG] SchedulePage - Master data grades count: ${masterData.grades.length}');
+        print('📅 [DEBUG] SchedulePage - Master data grades: ${masterData.grades}');
+        
+        if (masterData.grades.isNotEmpty) {
+          setState(() {
+            _grades = masterData.grades;
+            _isLoadingGrades = false;
+          });
+          print('✅ [DEBUG] SchedulePage - Successfully loaded ${_grades.length} grades from master_teacher collection');
+          print('✅ [DEBUG] SchedulePage - Grades: $_grades');
+          return;
+        } else {
+          print('⚠️ [DEBUG] SchedulePage - Master data found but grades list is empty');
         }
-        final user = snapshot.data;
-        final teacherId = user?.teacherId ?? '';
-        return BlocProvider(
-          create: (context) => sl<ScheduleBloc>()..add(LoadGrades(teacherId)),
-          child: Scaffold(
-            appBar: AppBar(
-              title: const Text('පන්ති කාල සටහන'),
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-            ),
-            body: BlocBuilder<ScheduleBloc, ScheduleState>(
-              builder: (context, state) {
-                if (state is ScheduleInitial) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (state is ScheduleLoading) {
+      } else {
+        print('⚠️ [DEBUG] SchedulePage - No master data found, will try fallback');
+      }
+      
+      // Fallback to Grade entities from master data (grades collection)
+      print('📅 [DEBUG] SchedulePage - Trying fallback: loading from Grade entities');
+      final gradeEntities = await MasterDataService.getGrades();
+      print('📅 [DEBUG] SchedulePage - Grade entities count: ${gradeEntities.length}');
+      
+      if (gradeEntities.isNotEmpty) {
+        final gradeNames = gradeEntities.map((g) => g.name).toList();
+        print('📅 [DEBUG] SchedulePage - Grade entity names: $gradeNames');
+        
+        setState(() {
+          _grades = gradeNames;
+          _isLoadingGrades = false;
+        });
+        print('⚠️ [DEBUG] SchedulePage - Loaded ${_grades.length} grades from Grade entities (fallback)');
+        print('⚠️ [DEBUG] SchedulePage - Grades: $_grades');
+        print('⚠️ [WARNING] SchedulePage - Using fallback grades collection instead of master_teacher!');
+        return;
+      }
+      
+      // If no grades found, set empty list
+      setState(() {
+        _grades = [];
+        _isLoadingGrades = false;
+      });
+      print('❌ [DEBUG] SchedulePage - No grades found in master data');
+    } catch (e) {
+      print('❌ [DEBUG] SchedulePage - Error loading grades: $e');
+      print('❌ [DEBUG] SchedulePage - Stack trace: ${StackTrace.current}');
+      setState(() {
+        _grades = [];
+        _isLoadingGrades = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_teacherId == null || _isLoadingGrades) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('පන්ති කාල සටහන'),
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_teacherId!.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('පන්ති කාල සටහන'),
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(
+          child: Text('Teacher ID not found. Please login again.'),
+        ),
+      );
+    }
+
+    return BlocProvider(
+      create: (context) => sl<ScheduleBloc>(),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('පන්ති කාල සටහන'),
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+        ),
+        body: _showTimetable && _selectedGrade != null
+            ? BlocBuilder<ScheduleBloc, ScheduleState>(
+                builder: (context, state) {
+                  if (state is ScheduleLoading) {
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('Loading timetable...'),
+                        ],
+                      ),
+                    );
+                  } else if (state is TimetableLoaded) {
+                    return _buildTimetableView(
+                      context,
+                      state.timetables,
+                      state.selectedGrade,
+                      _teacherId!,
+                      onBackToGrades: () {
+                        setState(() {
+                          _showTimetable = false;
+                          _selectedGrade = null;
+                        });
+                      },
+                    );
+                  } else if (state is ScheduleError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                          const SizedBox(height: 16),
+                          Text('Error: ${state.message}'),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () {
+                              context.read<ScheduleBloc>().add(LoadTimetable(_teacherId!, _selectedGrade!));
+                            },
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
                   return const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircularProgressIndicator(),
+                        Icon(Icons.schedule, size: 64, color: Colors.grey),
                         SizedBox(height: 16),
-                        Text('Loading timetable...'),
+                        Text('No timetable available'),
                       ],
                     ),
                   );
-                } else if (state is GradesLoaded) {
-                  return _buildGradesList(context, state.grades, teacherId);
-                } else if (state is TimetableLoaded) {
-                  return _buildTimetableView(context, state.timetables, state.selectedGrade, teacherId);
-                } else if (state is ScheduleError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                        const SizedBox(height: 16),
-                        Text('Error: ${state.message}'),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () {
-                            context.read<ScheduleBloc>().add(LoadGrades(teacherId));
-                          },
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.schedule, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('No timetable available'),
-                    ],
-                  ),
-                );
-              },
-            ),
-            floatingActionButton: BlocBuilder<ScheduleBloc, ScheduleState>(
-              builder: (context, state) {
-                if (state is TimetableLoaded) {
-                  return FloatingActionButton(
-                    onPressed: () {
-                      context.read<ScheduleBloc>().add(LoadGrades(teacherId));
-                    },
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    child: const Icon(Icons.list),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-          ),
-        );
-      },
+                },
+              )
+            : _buildGradesList(context, _grades, _teacherId!),
+        floatingActionButton: _showTimetable
+            ? FloatingActionButton(
+                onPressed: () {
+                  setState(() {
+                    _showTimetable = false;
+                    _selectedGrade = null;
+                  });
+                },
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                child: const Icon(Icons.list),
+              )
+            : null,
+      ),
     );
   }
 
@@ -114,16 +228,21 @@ class SchedulePage extends StatelessWidget {
     // Sort grades so that 'Grade 1 to 5' is first, then others numerically
     final sortedGrades = List<String>.from(grades);
     sortedGrades.sort((a, b) {
+      // Handle "1 to 5" special case
       if (a.toLowerCase().contains('1 to 5')) return -1;
       if (b.toLowerCase().contains('1 to 5')) return 1;
-      final aInt = int.tryParse(a) ?? 0;
-      final bInt = int.tryParse(b) ?? 0;
+      
+      // Extract numeric value from grade string (handles both "10" and "Grade 10")
+      final aClean = a.replaceAll(RegExp(r'[^0-9]'), '');
+      final bClean = b.replaceAll(RegExp(r'[^0-9]'), '');
+      final aInt = int.tryParse(aClean) ?? 0;
+      final bInt = int.tryParse(bClean) ?? 0;
       return aInt.compareTo(bInt);
     });
 
     return RefreshIndicator(
       onRefresh: () async {
-        context.read<ScheduleBloc>().add(LoadGrades(teacherId));
+        await _loadGrades();
       },
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
@@ -208,7 +327,13 @@ class SchedulePage extends StatelessWidget {
       ),
       child: InkWell(
         onTap: () {
-          context.read<ScheduleBloc>().add(LoadTimetable(teacherId, grade));
+          // Format grade for API call (ensure it's in "Grade X" format)
+          final formattedGrade = grade.contains('Grade') ? grade : 'Grade $grade';
+          setState(() {
+            _selectedGrade = formattedGrade;
+            _showTimetable = true;
+          });
+          context.read<ScheduleBloc>().add(LoadTimetable(teacherId, formattedGrade));
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -230,7 +355,7 @@ class SchedulePage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      ' $grade',
+                      grade.contains('Grade') ? grade : 'Grade $grade',
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -258,7 +383,7 @@ class SchedulePage extends StatelessWidget {
     );
   }
 
-  Widget _buildTimetableView(BuildContext context, List<Timetable> timetables, String selectedGrade, String teacherId) {
+  static Widget _buildTimetableView(BuildContext context, List<Timetable> timetables, String selectedGrade, String teacherId, {VoidCallback? onBackToGrades}) {
     if (timetables.isEmpty) {
       return Center(
         child: Column(
@@ -269,8 +394,8 @@ class SchedulePage extends StatelessWidget {
             Text('No timetable available for Grade $selectedGrade'),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () {
-                context.read<ScheduleBloc>().add(LoadGrades(teacherId));
+              onPressed: onBackToGrades ?? () {
+                Navigator.of(context).pop();
               },
               child: const Text('Back to Grades'),
             ),
@@ -300,20 +425,7 @@ class SchedulePage extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           color: Colors.blue[50],
-          child: Row(
-            children: [
-              Icon(Icons.schedule, color: Colors.blue[600]),
-              const SizedBox(width: 8),
-              Text(
-                '$selectedGrade Timetable',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue[600],
-                ),
-              ),
-            ],
-          ),
+         
         ),
         // Timetable content
         Expanded(
@@ -335,7 +447,7 @@ class SchedulePage extends StatelessWidget {
     );
   }
 
-  Widget _buildTimetableItem(BuildContext context, Timetable timetable) {
+  static Widget _buildTimetableItem(BuildContext context, Timetable timetable) {
     String? teacherImage;
     switch (timetable.teacherId) {
       case 1:
@@ -430,14 +542,14 @@ class SchedulePage extends StatelessWidget {
                     children: [
                       const SizedBox(height: 8),
                       Text(
-                        'Teacher',
+                        'Ongoing lesson',
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.grey[700],
                         ),
                       ),
                       Text(
-                        timetable.teacher ?? ' .... Teachers',
+                        timetable.topic ?? 'Introduction to the lesson',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -680,7 +792,7 @@ class _GradeTimetablePageState extends State<GradeTimetablePage> {
             if (state is ScheduleInitial || state is ScheduleLoading) {
               return const Center(child: CircularProgressIndicator());
             } else if (state is TimetableLoaded) {
-              return SchedulePage()._buildTimetableView(context, state.timetables, widget.grade, teacherId!);
+              return _SchedulePageState._buildTimetableView(context, state.timetables, widget.grade, teacherId!);
             } else if (state is ScheduleError) {
               return Center(child: Text('Error: ${state.message}'));
             }

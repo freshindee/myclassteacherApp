@@ -60,10 +60,10 @@ class PaymentRepositoryImpl implements PaymentRepository {
   }
 
   @override
-  Future<Either<Failure, List<Payment>>> getUserPayments(String userId) async {
+  Future<Either<Failure, List<Payment>>> getUserPayments(String userId, {String? teacherId}) async {
     if (await networkInfo.isConnected) {
       try {
-        final paymentModels = await remoteDataSource.getUserPayments(userId);
+        final paymentModels = await remoteDataSource.getUserPayments(userId, teacherId: teacherId);
         final payments = paymentModels.map((model) => model.toEntity()).toList();
         return Right(payments);
       } catch (e) {

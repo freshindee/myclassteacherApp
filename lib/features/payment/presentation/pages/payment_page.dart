@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/payment_bloc.dart';
 import '../../../../core/utils/month_utils.dart';
+import '../../../../core/services/master_data_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
@@ -26,39 +27,192 @@ class _PaymentPageState extends State<PaymentPage> {
   bool _isUploading = false;
   double _calculatedAmount = 0.0;
 
-  final List<String> grades = ['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
-  final List<String> subjects = ['Grade 1 to 5','Mathematics', 'Science', 'English', 'ICT', 'Tamil'];
+  List<String> _grades = [];
+  List<String> _subjects = [];
+  bool _isLoadingGrades = true;
+  bool _isLoadingSubjects = true;
+  String? _gradesError;
+  String? _subjectsError;
   final List<String> months = MonthUtils.getAllMonthNames();
 
   @override
   void initState() {
     super.initState();
-    _calculateAmount();
+    // Set current month as default
+    selectedMonth = MonthUtils.getMonthName(DateTime.now().month);
+    _loadGrades();
+    _loadSubjects();
+    // Don't calculate amount here since grade and subject are not selected yet
     // Load pay account details when the page initializes
     context.read<PaymentBloc>().add(LoadPayAccountDetails(widget.teacherId));
   }
 
-  void _calculateAmount() {
+  Future<void> _loadGrades() async {
     setState(() {
-      if (selectedGrade != null) {
-        final gradeNumber = int.tryParse(selectedGrade!.replaceAll(RegExp(r'[^0-9]'), ''));
-        if (gradeNumber != null) {
-          if (gradeNumber >= 6 && gradeNumber <= 9) {
-            _calculatedAmount = 700.0;
-          } else if (gradeNumber >= 10 && gradeNumber <= 11) {
-            _calculatedAmount = 1000.0;
-          } else if (gradeNumber >= 1 && gradeNumber <= 5) {
-            _calculatedAmount = 1000.0;
-          } else {
-            _calculatedAmount = 0.0;
-          }
-        } else {
-          _calculatedAmount = 0.0;
-        }
-      } else {
-        _calculatedAmount = 0.0;
-      }
+      _isLoadingGrades = true;
+      _gradesError = null;
     });
+    
+    try {
+      print('💳 [DEBUG] PaymentPage - Starting to load grades from master data');
+      
+      // First try to get from teacher master data (master_teacher collection)
+      final masterData = await MasterDataService.getTeacherMasterData();
+      print('💳 [DEBUG] PaymentPage - Master data result: ${masterData != null ? "Found" : "Not found"}');
+      
+      if (masterData != null && masterData.grades.isNotEmpty) {
+        print('💳 [DEBUG] PaymentPage - Master data grades: ${masterData.grades}');
+        
+        setState(() {
+          _grades = masterData.grades;
+          _isLoadingGrades = false;
+        });
+        print('✅ [DEBUG] PaymentPage - Successfully loaded ${_grades.length} grades from master_teacher collection');
+        print('✅ [DEBUG] PaymentPage - Grades: $_grades');
+        return;
+      }
+      
+      // Fallback to Grade entities from master data
+      print('💳 [DEBUG] PaymentPage - Trying fallback: loading from Grade entities');
+      final gradeEntities = await MasterDataService.getGrades();
+      print('💳 [DEBUG] PaymentPage - Grade entities count: ${gradeEntities.length}');
+      
+      if (gradeEntities.isNotEmpty) {
+        final gradeNames = gradeEntities.map((g) => g.name).toList();
+        print('💳 [DEBUG] PaymentPage - Grade entity names: $gradeNames');
+        
+        setState(() {
+          _grades = gradeNames;
+          _isLoadingGrades = false;
+        });
+        print('⚠️ [DEBUG] PaymentPage - Loaded ${_grades.length} grades from Grade entities (fallback)');
+        print('⚠️ [DEBUG] PaymentPage - Grades: $_grades');
+        print('⚠️ [WARNING] PaymentPage - Using fallback grades collection instead of master_teacher!');
+        return;
+      }
+      
+      // If no grades found, set empty list
+      setState(() {
+        _grades = [];
+        _isLoadingGrades = false;
+      });
+      print('❌ [DEBUG] PaymentPage - No grades found in master data');
+    } catch (e) {
+      print('❌ [DEBUG] PaymentPage - Error loading grades: $e');
+      setState(() {
+        _gradesError = e.toString();
+        _grades = [];
+        _isLoadingGrades = false;
+      });
+    }
+  }
+
+  Future<void> _loadSubjects() async {
+    setState(() {
+      _isLoadingSubjects = true;
+      _subjectsError = null;
+    });
+    
+    try {
+      print('💳 [DEBUG] PaymentPage - Starting to load subjects from master data');
+      
+      // First try to get from teacher master data (master_teacher collection)
+      final masterData = await MasterDataService.getTeacherMasterData();
+      print('💳 [DEBUG] PaymentPage - Master data result: ${masterData != null ? "Found" : "Not found"}');
+      
+      if (masterData != null && masterData.subjects.isNotEmpty) {
+        print('💳 [DEBUG] PaymentPage - Master data subjects: ${masterData.subjects}');
+        
+        setState(() {
+          _subjects = masterData.subjects;
+          _isLoadingSubjects = false;
+        });
+        print('✅ [DEBUG] PaymentPage - Successfully loaded ${_subjects.length} subjects from master_teacher collection');
+        print('✅ [DEBUG] PaymentPage - Subjects: $_subjects');
+        return;
+      }
+      
+      // Fallback to Subject entities from master data
+      print('💳 [DEBUG] PaymentPage - Trying fallback: loading from Subject entities');
+      final subjectEntities = await MasterDataService.getSubjects();
+      print('💳 [DEBUG] PaymentPage - Subject entities count: ${subjectEntities.length}');
+      
+      if (subjectEntities.isNotEmpty) {
+        final subjectNames = subjectEntities.map((s) => s.subject).toList();
+        print('💳 [DEBUG] PaymentPage - Subject entity names: $subjectNames');
+        
+        setState(() {
+          _subjects = subjectNames;
+          _isLoadingSubjects = false;
+        });
+        print('⚠️ [DEBUG] PaymentPage - Loaded ${_subjects.length} subjects from Subject entities (fallback)');
+        print('⚠️ [DEBUG] PaymentPage - Subjects: $_subjects');
+        print('⚠️ [WARNING] PaymentPage - Using fallback subjects collection instead of master_teacher!');
+        return;
+      }
+      
+      // If no subjects found, set empty list
+      setState(() {
+        _subjects = [];
+        _isLoadingSubjects = false;
+      });
+      print('❌ [DEBUG] PaymentPage - No subjects found in master data');
+    } catch (e) {
+      print('❌ [DEBUG] PaymentPage - Error loading subjects: $e');
+      setState(() {
+        _subjectsError = e.toString();
+        _subjects = [];
+        _isLoadingSubjects = false;
+      });
+    }
+  }
+
+  Future<void> _calculateAmount() async {
+    if (selectedGrade == null || selectedSubject == null) {
+      setState(() {
+        _calculatedAmount = 0.0;
+      });
+      return;
+    }
+
+    try {
+      // Extract grade number from "Grade X" format (e.g., "Grade 10" -> "10")
+      String gradeValue = selectedGrade!.replaceAll(RegExp(r'[^0-9]'), '');
+      
+      print('💳 [DEBUG] PaymentPage - Calculating amount for grade: $gradeValue, subject: $selectedSubject');
+      
+      // Get pricing from master data
+      final price = await MasterDataService.getPricing(selectedSubject!, gradeValue);
+      
+      if (price != null) {
+        print('✅ [DEBUG] PaymentPage - Found price from master data: Rs. $price');
+        setState(() {
+          _calculatedAmount = price.toDouble();
+        });
+      } else {
+        print('⚠️ [DEBUG] PaymentPage - No pricing found in master data for grade: $gradeValue, subject: $selectedSubject');
+        // Fallback: try to get pricing with "Grade X" format
+        final gradeWithPrefix = selectedGrade!.contains('Grade') ? selectedGrade! : 'Grade $selectedGrade!';
+        final priceWithPrefix = await MasterDataService.getPricing(selectedSubject!, gradeWithPrefix);
+        
+        if (priceWithPrefix != null) {
+          print('✅ [DEBUG] PaymentPage - Found price with grade prefix: Rs. $priceWithPrefix');
+          setState(() {
+            _calculatedAmount = priceWithPrefix.toDouble();
+          });
+        } else {
+          print('❌ [DEBUG] PaymentPage - No pricing found, setting to 0');
+          setState(() {
+            _calculatedAmount = 0.0;
+          });
+        }
+      }
+    } catch (e) {
+      print('❌ [DEBUG] PaymentPage - Error calculating amount: $e');
+      setState(() {
+        _calculatedAmount = 0.0;
+      });
+    }
   }
 
   Future<void> pickFile() async {
@@ -247,43 +401,79 @@ class _PaymentPageState extends State<PaymentPage> {
                           // Grade Dropdown
                           DropdownButtonFormField<String>(
                             value: selectedGrade,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: 'පන්තිය',
-                              border: OutlineInputBorder(),
+                              border: const OutlineInputBorder(),
+                              errorText: _gradesError != null ? _gradesError : null,
                             ),
-                            items: grades.map((grade) {
-                              return DropdownMenuItem(
-                                value: grade,
-                                child: Text(grade),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                selectedGrade = value;
-                                _calculateAmount();
-                              });
-                            },
+                            items: _isLoadingGrades
+                                ? [
+                                    const DropdownMenuItem<String>(
+                                      value: null,
+                                      child: Text('Loading grades...'),
+                                    )
+                                  ]
+                                : _grades.isEmpty
+                                    ? [
+                                        const DropdownMenuItem<String>(
+                                          value: null,
+                                          child: Text('No grades available'),
+                                        )
+                                      ]
+                                    : _grades.map((grade) {
+                                        final gradeValue = grade.contains('Grade') ? grade : 'Grade $grade';
+                                        return DropdownMenuItem<String>(
+                                          value: gradeValue,
+                                          child: Text(gradeValue),
+                                        );
+                                      }).toList(),
+                            onChanged: _isLoadingGrades || _grades.isEmpty
+                                ? null
+                                : (value) async {
+                                    setState(() {
+                                      selectedGrade = value;
+                                    });
+                                    await _calculateAmount();
+                                  },
                           ),
                           const SizedBox(height: 16),
                           
                           // Subject Dropdown
                           DropdownButtonFormField<String>(
                             value: selectedSubject,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: 'විෂය',
-                              border: OutlineInputBorder(),
+                              border: const OutlineInputBorder(),
+                              errorText: _subjectsError != null ? _subjectsError : null,
                             ),
-                            items: subjects.map((subject) {
-                              return DropdownMenuItem(
-                                value: subject,
-                                child: Text(subject),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                selectedSubject = value;
-                              });
-                            },
+                            items: _isLoadingSubjects
+                                ? [
+                                    const DropdownMenuItem<String>(
+                                      value: null,
+                                      child: Text('Loading subjects...'),
+                                    )
+                                  ]
+                                : _subjects.isEmpty
+                                    ? [
+                                        const DropdownMenuItem<String>(
+                                          value: null,
+                                          child: Text('No subjects available'),
+                                        )
+                                      ]
+                                    : _subjects.map((subject) {
+                                        return DropdownMenuItem<String>(
+                                          value: subject,
+                                          child: Text(subject),
+                                        );
+                                      }).toList(),
+                            onChanged: _isLoadingSubjects || _subjects.isEmpty
+                                ? null
+                                : (value) async {
+                                    setState(() {
+                                      selectedSubject = value;
+                                    });
+                                    await _calculateAmount();
+                                  },
                           ),
                           const SizedBox(height: 16),
                           
@@ -384,7 +574,7 @@ class _PaymentPageState extends State<PaymentPage> {
                           }
                         : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: selectedFile != null ? Colors.orange : Colors.green,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),

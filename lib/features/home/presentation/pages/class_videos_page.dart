@@ -9,6 +9,7 @@ import '../../domain/usecases/add_video.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import 'class_videos_bloc.dart';
 import '../../../payment/domain/usecases/get_user_payments.dart';
+import '../../../../core/services/master_data_service.dart';
 
 class ClassVideosPage extends StatefulWidget {
   const ClassVideosPage({super.key});
@@ -20,12 +21,10 @@ class ClassVideosPage extends StatefulWidget {
 class _ClassVideosPageState extends State<ClassVideosPage> {
   String? selectedGrade;
   String? selectedSubject;
-  final List<String> grades = [
-    '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'
-  ];
-  final List<String> subjects = [
-    'සියලුම විෂයන්(1-5 වසර)','Mathematics', 'Science', 'English', 'ICT', 'Tamil'
-  ];
+  List<String> grades = [];
+  List<String> subjects = [];
+  bool _isLoadingGrades = true;
+  bool _isLoadingSubjects = true;
 
   List<dynamic> currentMonthPayments = [];
   bool paymentsLoading = false;
@@ -35,7 +34,95 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
   @override
   void initState() {
     super.initState();
+    _loadGrades();
+    _loadSubjects();
     WidgetsBinding.instance.addPostFrameCallback((_) => _fetchPayments());
+  }
+
+  Future<void> _loadGrades() async {
+    setState(() {
+      _isLoadingGrades = true;
+    });
+    
+    try {
+      // First try to get from teacher master data
+      final masterData = await MasterDataService.getTeacherMasterData();
+      if (masterData != null && masterData.grades.isNotEmpty) {
+        setState(() {
+          grades = masterData.grades;
+          _isLoadingGrades = false;
+        });
+        print('🎬 [DEBUG] ClassVideosPage - Loaded ${grades.length} grades from master data');
+        return;
+      }
+      
+      // Fallback to Grade entities from master data
+      final gradeEntities = await MasterDataService.getGrades();
+      if (gradeEntities.isNotEmpty) {
+        setState(() {
+          grades = gradeEntities.map((g) => g.name).toList();
+          _isLoadingGrades = false;
+        });
+        print('🎬 [DEBUG] ClassVideosPage - Loaded ${grades.length} grades from Grade entities');
+        return;
+      }
+      
+      // If no grades found, set empty list
+      setState(() {
+        grades = [];
+        _isLoadingGrades = false;
+      });
+      print('⚠️ [DEBUG] ClassVideosPage - No grades found in master data');
+    } catch (e) {
+      print('⚠️ [DEBUG] ClassVideosPage - Error loading grades: $e');
+      setState(() {
+        grades = [];
+        _isLoadingGrades = false;
+      });
+    }
+  }
+
+  Future<void> _loadSubjects() async {
+    setState(() {
+      _isLoadingSubjects = true;
+    });
+    
+    try {
+      // First try to get from teacher master data
+      final masterData = await MasterDataService.getTeacherMasterData();
+      if (masterData != null && masterData.subjects.isNotEmpty) {
+        setState(() {
+          subjects = masterData.subjects;
+          _isLoadingSubjects = false;
+        });
+        print('🎬 [DEBUG] ClassVideosPage - Loaded ${subjects.length} subjects from master data');
+        return;
+      }
+      
+      // Fallback to Subject entities from master data
+      final subjectEntities = await MasterDataService.getSubjects();
+      if (subjectEntities.isNotEmpty) {
+        setState(() {
+          subjects = subjectEntities.map((s) => s.subject).toList();
+          _isLoadingSubjects = false;
+        });
+        print('🎬 [DEBUG] ClassVideosPage - Loaded ${subjects.length} subjects from Subject entities');
+        return;
+      }
+      
+      // If no subjects found, set empty list
+      setState(() {
+        subjects = [];
+        _isLoadingSubjects = false;
+      });
+      print('⚠️ [DEBUG] ClassVideosPage - No subjects found in master data');
+    } catch (e) {
+      print('⚠️ [DEBUG] ClassVideosPage - Error loading subjects: $e');
+      setState(() {
+        subjects = [];
+        _isLoadingSubjects = false;
+      });
+    }
   }
 
   Future<void> _fetchPayments() async {
@@ -197,20 +284,51 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
                           const Text('පන්තිය තෝරන්න : ', style: TextStyle(fontSize: 16)),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: DropdownButton<String>(
-                              value: selectedGrade,
-                              hint: const Text('All'),
-                              isExpanded: true,
-                              items: grades.map((grade) {
-                                return DropdownMenuItem(
-                                  value: grade,
-                                  child: Text('Grade $grade'),
-                                );
-                              }).toList(),
-                              onChanged: (grade) {
-                                _onGradeOrSubjectChanged(grade, selectedSubject, userId, teacherId, context);
-                              },
-                            ),
+                            child: _isLoadingGrades
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text('Loading grades...', style: TextStyle(color: Colors.grey)),
+                                      ],
+                                    ),
+                                  )
+                                : grades.isEmpty
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(color: Colors.grey),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text(
+                                          'No grades available',
+                                          style: TextStyle(color: Colors.grey),
+                                        ),
+                                      )
+                                    : DropdownButton<String>(
+                                        value: selectedGrade,
+                                        hint: const Text('All'),
+                                        isExpanded: true,
+                                        items: grades.map((grade) {
+                                          return DropdownMenuItem(
+                                            value: grade,
+                                            child: Text('Grade $grade'),
+                                          );
+                                        }).toList(),
+                                        onChanged: (grade) {
+                                          _onGradeOrSubjectChanged(grade, selectedSubject, userId, teacherId, context);
+                                        },
+                                      ),
                           ),
                         ],
                       ),
@@ -220,20 +338,51 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
                           const Text('විෂයය තෝරන්න : ', style: TextStyle(fontSize: 16)),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: DropdownButton<String>(
-                              value: selectedSubject,
-                              hint: const Text('All'),
-                              isExpanded: true,
-                              items: subjects.map((subject) {
-                                return DropdownMenuItem(
-                                  value: subject,
-                                  child: Text(subject),
-                                );
-                              }).toList(),
-                              onChanged: (subject) {
-                                _onGradeOrSubjectChanged(selectedGrade, subject, userId, teacherId, context);
-                              },
-                            ),
+                            child: _isLoadingSubjects
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text('Loading subjects...', style: TextStyle(color: Colors.grey)),
+                                      ],
+                                    ),
+                                  )
+                                : subjects.isEmpty
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(color: Colors.grey),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text(
+                                          'No subjects available',
+                                          style: TextStyle(color: Colors.grey),
+                                        ),
+                                      )
+                                    : DropdownButton<String>(
+                                        value: selectedSubject,
+                                        hint: const Text('All'),
+                                        isExpanded: true,
+                                        items: subjects.map((subject) {
+                                          return DropdownMenuItem(
+                                            value: subject,
+                                            child: Text(subject),
+                                          );
+                                        }).toList(),
+                                        onChanged: (subject) {
+                                          _onGradeOrSubjectChanged(selectedGrade, subject, userId, teacherId, context);
+                                        },
+                                      ),
                           ),
                         ],
                       ),

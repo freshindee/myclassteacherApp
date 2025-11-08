@@ -18,8 +18,8 @@ class SliderImageModel extends SliderImage {
       imageUrl = json['image2'].toString();
     } else if (json['image3'] != null && json['image3'].toString().isNotEmpty) {
       imageUrl = json['image3'].toString();
-    } else if (json['image'] != null && json['image'].toString().isNotEmpty) {
-      imageUrl = json['image'].toString();
+    } else if (json['image4'] != null && json['image4'].toString().isNotEmpty) {
+      imageUrl = json['image4'].toString();
     }
     
     // If no valid image URL found, use a placeholder

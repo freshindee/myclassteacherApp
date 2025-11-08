@@ -51,7 +51,8 @@ class ClassVideosBloc extends Bloc<ClassVideosEvent, ClassVideosState> {
         grade: event.grade,
         subject: event.subject,
         month: currentMonth, 
-        year: currentYear
+        year: currentYear,
+        accessLevel: 'paid', // Class videos page only shows paid videos
       );
       
       print('🎬 Sending GetVideosParams to repository:');

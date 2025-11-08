@@ -11,6 +11,7 @@ abstract class VideoRepository {
     String? subject,
     int? month,
     int? year,
+    String? accessLevel,
   });
   Future<Either<Failure, List<Video>>> getFreeVideos(String teacherId);
   Future<Either<Failure, List<Video>>> getFreeVideosByGrade(String teacherId, String grade);

@@ -6,6 +6,7 @@ import '../../../../injection_container.dart';
 import '../../domain/entities/video.dart';
 import 'free_videos_bloc.dart';
 import '../../../../core/services/user_session_service.dart';
+import '../../../../core/services/master_data_service.dart';
 
 class FreeVideosPage extends StatefulWidget {
   const FreeVideosPage({super.key});
@@ -17,15 +18,14 @@ class FreeVideosPage extends StatefulWidget {
 class _FreeVideosPageState extends State<FreeVideosPage> {
   String? selectedGrade;
   String? teacherId;
-
-  final List<String> grades = [
-    '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'
-  ];
+  List<String> grades = [];
+  bool _isLoadingGrades = true;
 
   @override
   void initState() {
     super.initState();
     _loadTeacherId();
+    _loadGrades();
   }
 
   Future<void> _loadTeacherId() async {
@@ -36,10 +36,60 @@ class _FreeVideosPageState extends State<FreeVideosPage> {
     print('🎬 [DEBUG] FreeVideosPage - Loaded teacherId: "$teacherId"');
   }
 
+  Future<void> _loadGrades() async {
+    setState(() {
+      _isLoadingGrades = true;
+    });
+    
+    try {
+      // First try to get from teacher master data
+      final masterData = await MasterDataService.getTeacherMasterData();
+      if (masterData != null && masterData.grades.isNotEmpty) {
+        setState(() {
+          grades = masterData.grades;
+          _isLoadingGrades = false;
+        });
+        print('🎬 [DEBUG] FreeVideosPage - Loaded ${grades.length} grades from master data');
+        return;
+      }
+      
+      // Fallback to Grade entities from master data
+      final gradeEntities = await MasterDataService.getGrades();
+      if (gradeEntities.isNotEmpty) {
+        setState(() {
+          grades = gradeEntities.map((g) => g.name).toList();
+          _isLoadingGrades = false;
+        });
+        print('🎬 [DEBUG] FreeVideosPage - Loaded ${grades.length} grades from Grade entities');
+        return;
+      }
+      
+      // If no grades found, set empty list
+      setState(() {
+        grades = [];
+        _isLoadingGrades = false;
+      });
+      print('⚠️ [DEBUG] FreeVideosPage - No grades found in master data');
+    } catch (e) {
+      print('⚠️ [DEBUG] FreeVideosPage - Error loading grades: $e');
+      setState(() {
+        grades = [];
+        _isLoadingGrades = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (teacherId == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (teacherId == null || _isLoadingGrades) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Free Videos'),
+          backgroundColor: Colors.blue[600],
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
     
     // Don't allow interaction if teacherId is empty
@@ -81,33 +131,45 @@ class _FreeVideosPageState extends State<FreeVideosPage> {
                 const Text('පන්තිය තෝරන්න : ', style: TextStyle(fontSize: 16)),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: DropdownButton<String>(
-                    value: selectedGrade,
-                    hint: const Text('All'),
-                    isExpanded: true,
-                    items: grades.map((grade) {
-                      return DropdownMenuItem(
-                        value: grade,
-                        child: Text('Grade $grade'),
-                      );
-                    }).toList(),
-                    onChanged: (grade) {
-                      setState(() {
-                        selectedGrade = grade;
-                      });
-                      if (teacherId!.isNotEmpty) {
-                        if (grade != null) {
-                          print('🎬 [DEBUG] FreeVideosPage - Calling LoadFreeVideosByGrade with teacherId: "$teacherId", grade: "$grade"');
-                          context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(teacherId!, grade));
-                        } else {
-                          print('🎬 [DEBUG] FreeVideosPage - Calling LoadFreeVideos with teacherId: "$teacherId"');
-                          context.read<FreeVideosBloc>().add(LoadFreeVideos(teacherId!));
-                        }
-                      } else {
-                        print('🎬 [DEBUG] FreeVideosPage - Skipping API call due to empty teacherId');
-                      }
-                    },
-                  ),
+                  child: grades.isEmpty
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'No grades available',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        )
+                      : DropdownButton<String>(
+                          value: selectedGrade,
+                          hint: const Text('All'),
+                          isExpanded: true,
+                          items: grades.map((grade) {
+                            return DropdownMenuItem(
+                              value: grade,
+                              child: Text('Grade $grade'),
+                            );
+                          }).toList(),
+                          onChanged: (grade) {
+                            setState(() {
+                              selectedGrade = grade;
+                            });
+                            if (teacherId!.isNotEmpty) {
+                              if (grade != null) {
+                                print('🎬 [DEBUG] FreeVideosPage - Calling LoadFreeVideosByGrade with teacherId: "$teacherId", grade: "$grade"');
+                                context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(teacherId!, grade));
+                              } else {
+                                print('🎬 [DEBUG] FreeVideosPage - Calling LoadFreeVideos with teacherId: "$teacherId"');
+                                context.read<FreeVideosBloc>().add(LoadFreeVideos(teacherId!));
+                              }
+                            } else {
+                              print('🎬 [DEBUG] FreeVideosPage - Skipping API call due to empty teacherId');
+                            }
+                          },
+                        ),
                 ),
               ],
             ),

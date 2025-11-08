@@ -17,16 +17,18 @@ class GetUserPayments
       GetUserPaymentsParams params) async {
     print('🎬 GetUserPayments usecase called with parameters:');
     print('🎬   - userId: ${params.userId}');
+    print('🎬   - teacherId: ${params.teacherId}');
     
-    return await repository.getUserPayments(params.userId);
+    return await repository.getUserPayments(params.userId, teacherId: params.teacherId);
   }
 }
 
 class GetUserPaymentsParams extends Equatable {
   final String userId;
+  final String? teacherId;
 
-  const GetUserPaymentsParams({required this.userId});
+  const GetUserPaymentsParams({required this.userId, this.teacherId});
 
   @override
-  List<Object> get props => [userId];
+  List<Object?> get props => [userId, teacherId];
 } 

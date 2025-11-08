@@ -29,7 +29,7 @@ class SliderRemoteDataSourceImpl implements SliderRemoteDataSource {
         print('🖼️ [API RESPONSE] Slider document ${doc.id}: $data');
         
         // Extract all image fields from the document
-        final imageFields = ['image1', 'image2', 'image3', 'image'];
+        final imageFields = ['image1', 'image2', 'image3', 'image4'];
         int imageIndex = 1;
         
         for (final field in imageFields) {

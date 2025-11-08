@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/auth/domain/entities/user.dart';
+import 'master_data_service.dart';
 
 class UserSessionService {
   static const String _userKey = 'current_user';
@@ -58,6 +59,8 @@ class UserSessionService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_userKey);
     await prefs.setBool(_isLoggedInKey, false);
+    // Also clear master data when user logs out
+    await MasterDataService.clearMasterData();
   }
 
   // Get user ID

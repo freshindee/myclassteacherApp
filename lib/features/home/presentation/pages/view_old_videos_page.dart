@@ -7,17 +7,22 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import 'old_videos_bloc.dart';
 
 class ViewOldVideoPage extends StatefulWidget {
-  const ViewOldVideoPage({super.key});
+  final String? grade;
+  final int? month;
+  final String? subject;
+
+  const ViewOldVideoPage({
+    super.key,
+    this.grade,
+    this.month,
+    this.subject,
+  });
 
   @override
   State<ViewOldVideoPage> createState() => _ViewOldVideoPageState();
 }
 
 class _ViewOldVideoPageState extends State<ViewOldVideoPage> {
-  String? selectedGrade;
-  final List<String> grades = [
-    '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -76,178 +81,195 @@ class _ViewOldVideoPageState extends State<ViewOldVideoPage> {
       create: (_) => sl<OldVideosBloc>(),
       child: Builder(
         builder: (context) {
+          // Auto-load videos when page loads with provided parameters
+          final now = DateTime.now();
+          final currentYear = now.year;
+          
+          // Extract grade number from "Grade X" format if needed
+          String? gradeValue = widget.grade;
+          if (gradeValue != null && gradeValue.contains('Grade')) {
+            gradeValue = gradeValue.replaceAll(RegExp(r'[^0-9]'), '');
+          }
+          
+          // Load videos on first build
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            context.read<OldVideosBloc>().add(
+              FetchOldVideos(
+                userId: userId,
+                teacherId: teacherId,
+                grade: gradeValue,
+                subject: widget.subject,
+                month: widget.month,
+                year: currentYear,
+              ),
+            );
+          });
+          
           return Scaffold(
             appBar: AppBar(
               title: const Text('පසුගිය වීඩියෝ '),
               backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
             ),
-            body: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      const Text('පන්තිය තෝරන්න: ', style: TextStyle(fontSize: 16)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButton<String>(
-                          value: selectedGrade,
-                          hint: const Text('All'),
-                          isExpanded: true,
-                          items: grades.map((grade) {
-                            return DropdownMenuItem(
-                              value: grade,
-                              child: Text('Grade $grade'),
-                            );
-                          }).toList(),
-                          onChanged: (grade) {
-                            setState(() {
-                              selectedGrade = grade;
-                            });
-                            // Dispatch event to fetch old videos for selected grade
-                            context.read<OldVideosBloc>().add(
-                              FetchOldVideos(userId: userId, teacherId: teacherId, grade: grade),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: selectedGrade == null
-                      ? const Center(child: Text('පසුගිය වීඩියෝ නැරබීමට පන්තිය තෝරන්න.'))
-                      : BlocBuilder<OldVideosBloc, OldVideosState>(
-                          builder: (context, state) {
-                            developer.log('ViewOldVideoPage state: $state', name: 'ViewOldVideoPage');
+            body: BlocBuilder<OldVideosBloc, OldVideosState>(
+              builder: (context, state) {
+                developer.log('ViewOldVideoPage state: $state', name: 'ViewOldVideoPage');
 
-                            if (state is OldVideosLoading) {
-                              return const Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    CircularProgressIndicator(),
-                                    SizedBox(height: 16),
-                                    Text('Loading videos...'),
-                                  ],
-                                ),
-                              );
-                            } else if (state is OldVideosLoaded) {
-                              developer.log('Loaded ${state.videos.length} old videos', name: 'ViewOldVideoPage');
-                              return Column(
-                                children: [
-                                  Expanded(
-                                    child: state.videos.isEmpty
-                                        ? Center(
-                                            child: Column(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                const Icon(
-                                                  Icons.video_library_outlined,
-                                                  size: 64,
-                                                  color: Colors.grey,
-                                                ),
-                                                const SizedBox(height: 16),
-                                                const Text(
-                                                  'No old videos available',
-                                                  style: TextStyle(fontSize: 18, color: Colors.grey),
-                                                ),
-                                              ],
-                                            ),
-                                          )
-                                        : ListView.builder(
-                                            itemCount: state.videos.length,
-                                            itemBuilder: (context, index) {
-                                              final video = state.videos[index];
-                                              final isPaid = video.accessLevel == 'paid';
+                if (state is OldVideosLoading) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Loading videos...'),
+                      ],
+                    ),
+                  );
+                } else if (state is OldVideosLoaded) {
+                  developer.log('Loaded ${state.videos.length} old videos', name: 'ViewOldVideoPage');
+                  return state.videos.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.video_library_outlined,
+                                size: 64,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'No old videos available',
+                                style: TextStyle(fontSize: 18, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: state.videos.length,
+                          itemBuilder: (context, index) {
+                            final video = state.videos[index];
+                            final isPaid = video.accessLevel == 'paid';
 
-                                              return Card(
-                                                margin: const EdgeInsets.symmetric(
-                                                    horizontal: 16, vertical: 8),
-                                                elevation: 4,
-                                                child: ListTile(
-                                                  leading: Image.network(
-                                                    video.thumb,
-                                                    width: 100,
-                                                    fit: BoxFit.cover,
-                                                    errorBuilder: (context, error, stackTrace) =>
-                                                        const Icon(Icons.video_library, size: 50),
-                                                  ),
-                                                  title: Text(video.title),
-                                                  subtitle: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      Text(video.description),
-                                                      if (video.grade != null)
-                                                        Text('Grade: ${video.grade}'),
-                                                      if (video.subject != null)
-                                                        Text('Subject: ${video.subject}'),
-                                                      if (video.month != null)
-                                                        Text('Month: ${video.month}'),
-                                                      if (video.year != null)
-                                                        Text('Year: ${video.year}'),
-                                                    ],
-                                                  ),
-                                                  trailing: isPaid
-                                                      ? const Icon(Icons.lock, color: Colors.amber)
-                                                      : const Icon(Icons.lock_open, color: Colors.green),
-                                                  onTap: () {
-                                                    if (video.youtubeUrl.isNotEmpty) {
-                                                      Navigator.of(context).push(
-                                                        MaterialPageRoute(
-                                                          builder: (context) => VideoPlayerPage(videoUrl: video.youtubeUrl),
-                                                        ),
-                                                      );
-                                                    } else {
-                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                        const SnackBar(
-                                                          content: Text('Video URL is not available.'),
-                                                          backgroundColor: Colors.red,
-                                                        ),
-                                                      );
-                                                    }
-                                                  },
-                                                ),
-                                              );
-                                            },
-                                          ),
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              elevation: 4,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.all(12),
+                                leading: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    video.thumb,
+                                    width: 100,
+                                    height: 100,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        const Icon(Icons.video_library, size: 50),
                                   ),
-                                ],
-                              );
-                            } else if (state is OldVideosError) {
-                              return Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(
-                                      Icons.error_outline,
-                                      size: 64,
-                                      color: Colors.red,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'Error: ${state.message}',
-                                      style: const TextStyle(fontSize: 16, color: Colors.red),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    ElevatedButton(
-                                      onPressed: () {
-                                        context.read<OldVideosBloc>().add(FetchOldVideos(userId: userId, teacherId: teacherId, grade: selectedGrade));
-                                      },
-                                      child: const Text('Retry'),
-                                    ),
-                                  ],
                                 ),
-                              );
-                            }
-                            return const Center(
-                                child: Text('No videos to display.'));
+                                title: Text(
+                                  video.title,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        video.description,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      if (video.grade != null)
+                                        Text('Grade: ${video.grade}'),
+                                      if (video.subject != null)
+                                        Text('Subject: ${video.subject}'),
+                                      if (video.month != null)
+                                        Text('Month: ${video.month}'),
+                                      if (video.year != null)
+                                        Text('Year: ${video.year}'),
+                                    ],
+                                  ),
+                                ),
+                                trailing: isPaid
+                                    ? const Icon(Icons.lock, color: Colors.amber)
+                                    : const Icon(Icons.lock_open, color: Colors.green),
+                                onTap: () {
+                                  if (video.youtubeUrl.isNotEmpty) {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => VideoPlayerPage(videoUrl: video.youtubeUrl),
+                                      ),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Video URL is not available.'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            );
                           },
+                        );
+                } else if (state is OldVideosError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          size: 64,
+                          color: Colors.red,
                         ),
-                ),
-              ],
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error: ${state.message}',
+                          style: const TextStyle(fontSize: 16, color: Colors.red),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            final now = DateTime.now();
+                            final currentYear = now.year;
+                            String? gradeValue = widget.grade;
+                            if (gradeValue != null && gradeValue.contains('Grade')) {
+                              gradeValue = gradeValue.replaceAll(RegExp(r'[^0-9]'), '');
+                            }
+                            context.read<OldVideosBloc>().add(
+                              FetchOldVideos(
+                                userId: userId,
+                                teacherId: teacherId,
+                                grade: gradeValue,
+                                subject: widget.subject,
+                                month: widget.month,
+                                year: currentYear,
+                              ),
+                            );
+                          },
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return const Center(
+                  child: Text('No videos to display.'),
+                );
+              },
             ),
           );
         },

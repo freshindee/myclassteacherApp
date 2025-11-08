@@ -1,5 +1,5 @@
 class AppStrings {
-  static const String appName = "WhatsApp Auth";
+  static const String appName = "My Class Teacher";
   static const String phoneNumberHint = "WhatsApp Number";
   static const String passwordHint = "Password";
   static const String login = "Login";

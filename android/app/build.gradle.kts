@@ -12,6 +12,16 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
+    // Signing configuration
+    signingConfigs {
+        create("release") {
+            keyAlias = project.findProperty("MYAPP_UPLOAD_KEY_ALIAS") as String? ?: "methumlosath"
+            keyPassword = project.findProperty("MYAPP_UPLOAD_KEY_PASSWORD") as String? ?: "KLAirsr!@32025"
+            storeFile = file("../../myclassteacher.jks")
+            storePassword = project.findProperty("MYAPP_UPLOAD_STORE_PASSWORD") as String? ?: "KLAirsr!@32025"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -58,7 +68,7 @@ android {
         applicationId = "com.fusionlkitsolution.myclassteacher"
         // You can update the following values to match your application needs.
         // For more information, see: https://developer.android.com/studio/build/application-id.html.
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -86,9 +96,8 @@ android {
             isRenderscriptDebuggable = true
         }
         getByName("release") {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Use the release signing config for production builds
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             isDebuggable = false
@@ -165,5 +174,65 @@ tasks.register("cleanAndRebuild") {
     dependsOn("assembleRelease")
     doLast {
         println("Clean rebuild completed. Check APK size for optimization results.")
+    }
+}
+
+// Task to generate keystore if it doesn't exist
+tasks.register("generateKeystore") {
+    doLast {
+        val keystoreFile = file("myclassteacher.keystore")
+        if (!keystoreFile.exists()) {
+            println("Generating keystore file...")
+            exec {
+                commandLine(
+                    "keytool",
+                    "-genkey",
+                    "-v",
+                    "-keystore", "myclassteacher.keystore",
+                    "-alias", "myclassteacher",
+                    "-keyalg", "RSA",
+                    "-keysize", "2048",
+                    "-validity", "10000",
+                    "-storepass", project.findProperty("MYAPP_UPLOAD_STORE_PASSWORD") as String? ?: "your_store_password",
+                    "-keypass", project.findProperty("MYAPP_UPLOAD_KEY_PASSWORD") as String? ?: "your_key_password",
+                    "-dname", "CN=MyClassTeacher, OU=Development, O=FusionLKit, L=Colombo, S=Western, C=LK"
+                )
+            }
+            println("Keystore generated successfully!")
+        } else {
+            println("Keystore already exists.")
+        }
+    }
+}
+
+// Task to build signed app bundle
+tasks.register("buildSignedBundle") {
+    dependsOn("generateKeystore")
+    dependsOn("bundleRelease")
+    doLast {
+        println("Signed app bundle built successfully!")
+        val bundleFile = file("build/outputs/bundle/release/app-release.aab")
+        if (bundleFile.exists()) {
+            val sizeInBytes = bundleFile.length()
+            val sizeInMB = sizeInBytes / (1024 * 1024)
+            println("App Bundle Size: $sizeInMB MB ($sizeInBytes bytes)")
+            println("Bundle location: ${bundleFile.absolutePath}")
+        }
+    }
+}
+
+// Task to build signed APK
+tasks.register("buildSignedApk") {
+    dependsOn("generateKeystore")
+    dependsOn("assembleRelease")
+    doLast {
+        println("Signed APK built successfully!")
+        val apkFile = file("build/outputs/apk/release/app-release.apk")
+        if (apkFile.exists()) {
+            val sizeInBytes = apkFile.length()
+            val sizeInMB = sizeInBytes / (1024 * 1024)
+            println("APK Size: $sizeInMB MB ($sizeInBytes bytes)")
+            println("APK location: ${apkFile.absolutePath}")
+        }
     }
 }

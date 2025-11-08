@@ -11,6 +11,7 @@ abstract class VideoRemoteDataSource {
     String? subject,
     int? month,
     int? year,
+    String? accessLevel,
   });
   Future<VideoModel> addVideo(AddVideoParams params);
   Future<List<VideoModel>> getFreeVideos(String teacherId);
@@ -32,6 +33,7 @@ class VideoRemoteDataSourceImpl implements VideoRemoteDataSource {
     String? subject,
     int? month,
     int? year,
+    String? accessLevel,
   }) async {
     try {
       print('🎬 [API REQUEST] VideoDataSource.getVideos called with parameters:');
@@ -41,14 +43,18 @@ class VideoRemoteDataSourceImpl implements VideoRemoteDataSource {
       print('🎬   - subject: $subject');
       print('🎬   - month: $month');
       print('🎬   - year: $year');
+      print('🎬   - accessLevel: $accessLevel');
       
       developer.log('🔍 Fetching videos from Firestore for userId: $userId, teacherId: $teacherId...', name: 'VideoDataSource');
       
       Query<Map<String, dynamic>> collectionRef = firestore.collection('videos');
       print('🎬 Starting Firestore query on "videos" collection');
 
-      // Only get paid videos for class videos page
-      collectionRef = collectionRef.where('accessLevel', isEqualTo: 'paid');
+      // Filter by accessLevel only if provided (for old videos, we want both paid and free)
+      if (accessLevel != null && accessLevel.isNotEmpty) {
+        collectionRef = collectionRef.where('accessLevel', isEqualTo: accessLevel);
+        print('🎬 Applied filter: accessLevel = $accessLevel');
+      }
 
       if (teacherId != null && teacherId.isNotEmpty) {
         collectionRef = collectionRef.where('teacherId', isEqualTo: teacherId);

@@ -27,6 +27,7 @@ class GetVideos implements UseCase<List<Video>, GetVideosParams> {
       subject: params.subject,
       month: params.month,
       year: params.year,
+      accessLevel: params.accessLevel,
     );
   }
 }
@@ -38,6 +39,7 @@ class GetVideosParams extends Equatable {
   final String? subject;
   final int? month;
   final int? year;
+  final String? accessLevel;
 
   const GetVideosParams({
     this.userId,
@@ -46,8 +48,9 @@ class GetVideosParams extends Equatable {
     this.subject,
     this.month,
     this.year,
+    this.accessLevel,
   });
 
   @override
-  List<Object?> get props => [userId, teacherId, grade, subject, month, year];
+  List<Object?> get props => [userId, teacherId, grade, subject, month, year, accessLevel];
 } 

@@ -72,6 +72,18 @@ import 'features/home/data/repositories/slider_repository_impl.dart';
 import 'features/home/domain/repositories/slider_repository.dart';
 import 'features/home/domain/usecases/get_slider_images.dart';
 import 'features/home/presentation/bloc/slider_bloc.dart';
+import 'features/home/data/datasources/subject_remote_data_source.dart';
+import 'features/home/data/repositories/subject_repository_impl.dart';
+import 'features/home/domain/repositories/subject_repository.dart';
+import 'features/home/domain/usecases/get_subjects.dart';
+import 'features/home/data/datasources/grade_remote_data_source.dart';
+import 'features/home/data/repositories/grade_repository_impl.dart';
+import 'features/home/domain/repositories/grade_repository.dart';
+import 'features/home/domain/usecases/get_grades.dart';
+import 'features/home/data/datasources/teacher_master_data_remote_data_source.dart';
+import 'features/home/data/repositories/teacher_master_data_repository_impl.dart';
+import 'features/home/domain/repositories/teacher_master_data_repository.dart';
+import 'features/home/domain/usecases/get_teacher_master_data.dart';
 
 final sl = GetIt.instance;
 
@@ -82,6 +94,9 @@ void init() {
       signIn: sl(),
       signUp: sl(),
       signOut: sl(),
+      getSubjects: sl(),
+      getGrades: sl(),
+      getTeacherMasterData: sl(),
     ),
   );
   sl.registerFactory(
@@ -170,6 +185,9 @@ void init() {
   sl.registerLazySingleton(() => GetTeachers(sl()));
   sl.registerLazySingleton(() => GetTermTestPapers(sl()));
   sl.registerLazySingleton(() => GetSliderImages(sl()));
+  sl.registerLazySingleton(() => GetSubjects(sl()));
+  sl.registerLazySingleton(() => GetGrades(sl()));
+  sl.registerLazySingleton(() => GetTeacherMasterData(sl()));
 
   // Repositories
   sl.registerLazySingleton<AuthRepository>(
@@ -238,6 +256,24 @@ void init() {
       networkInfo: sl(),
     ),
   );
+  sl.registerLazySingleton<SubjectRepository>(
+    () => SubjectRepositoryImpl(
+      remoteDataSource: sl(),
+      networkInfo: sl(),
+    ),
+  );
+  sl.registerLazySingleton<GradeRepository>(
+    () => GradeRepositoryImpl(
+      remoteDataSource: sl(),
+      networkInfo: sl(),
+    ),
+  );
+  sl.registerLazySingleton<TeacherMasterDataRepository>(
+    () => TeacherMasterDataRepositoryImpl(
+      remoteDataSource: sl(),
+      networkInfo: sl(),
+    ),
+  );
 
   // Data sources
   sl.registerLazySingleton<AuthRemoteDataSource>(
@@ -275,6 +311,15 @@ void init() {
   );
   sl.registerLazySingleton<SliderRemoteDataSource>(
     () => SliderRemoteDataSourceImpl(firestore: sl()),
+  );
+  sl.registerLazySingleton<SubjectRemoteDataSource>(
+    () => SubjectRemoteDataSourceImpl(firestore: sl()),
+  );
+  sl.registerLazySingleton<GradeRemoteDataSource>(
+    () => GradeRemoteDataSourceImpl(firestore: sl()),
+  );
+  sl.registerLazySingleton<TeacherMasterDataRemoteDataSource>(
+    () => TeacherMasterDataRemoteDataSourceImpl(firestore: sl()),
   );
 
   // Core

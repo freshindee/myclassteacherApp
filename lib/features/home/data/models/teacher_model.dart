@@ -7,6 +7,7 @@ class TeacherModel {
   final String grade;
   final String image;
   final String phone;
+  final String displayId;
 
   TeacherModel({
     required this.id,
@@ -14,17 +15,19 @@ class TeacherModel {
     required this.subject,
     required this.grade,
     required this.image,
-    required this.phone,
+    this.phone = '',
+    this.displayId = '',
   });
 
   factory TeacherModel.fromJson(Map<String, dynamic> json) {
     return TeacherModel(
-      id: json['id'] as String,
+      id: json['id']?.toString() ?? '',
       name: json['name'] as String? ?? '',
       subject: json['subject'] as String? ?? '',
       grade: json['grade'] as String? ?? '',
       image: json['image'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
+      displayId: json['display_id'] as String? ?? json['displayId'] as String? ?? '',
     );
   }
 
@@ -36,6 +39,7 @@ class TeacherModel {
       grade: grade,
       image: image,
       phone: phone,
+      displayId: displayId,
     );
   }
 } 

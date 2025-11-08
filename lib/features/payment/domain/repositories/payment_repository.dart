@@ -8,6 +8,6 @@ abstract class PaymentRepository {
   Future<Either<Failure, void>> createPayment(Payment payment);
   Future<Either<Failure, bool>> hasAccess(String userId, String grade, String subject, int month, int year);
   Future<Either<Failure, List<Subscription>>> getUserSubscriptions(String userId);
-  Future<Either<Failure, List<Payment>>> getUserPayments(String userId);
+  Future<Either<Failure, List<Payment>>> getUserPayments(String userId, {String? teacherId});
   Future<Either<Failure, PayAccountDetails?>> getPayAccountDetails(String teacherId);
 } 

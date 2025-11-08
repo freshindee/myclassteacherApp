@@ -15,6 +15,8 @@ import 'today_classes_page.dart';
 import 'teachers_page.dart';
 import 'view_old_videos_page.dart';
 import 'old_videos_bloc.dart';
+import 'past_months_recordings_page.dart';
+import 'past_months_notes_page.dart';
 import 'free_videos_bloc.dart';
 import 'grades_list_page.dart';
 import 'term_test_papers_page.dart';
@@ -122,7 +124,7 @@ class _HomePageState extends State<HomePage> {
                             
                             return CarouselSlider(
                               options: CarouselOptions(
-                                height: 180,
+                                height: 250,
                                 autoPlay: true,
                                 enlargeCenterPage: true,
                                 viewportFraction: 1.0,
@@ -268,7 +270,7 @@ class _HomePageState extends State<HomePage> {
                       () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const NotesAssignmentsPage(),
+                          builder: (context) => const PastMonthsNotesPage(),
                         ),
                       ),
                     ),
@@ -280,10 +282,7 @@ class _HomePageState extends State<HomePage> {
                       () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => BlocProvider(
-                            create: (_) => sl<OldVideosBloc>(),
-                            child: const ViewOldVideoPage(),
-                          ),
+                          builder: (context) => const PastMonthsRecordingsPage(),
                         ),
                       ),
                     ),

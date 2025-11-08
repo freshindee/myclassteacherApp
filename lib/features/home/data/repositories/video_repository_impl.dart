@@ -28,6 +28,7 @@ class VideoRepositoryImpl implements VideoRepository {
     String? subject,
     int? month,
     int? year,
+    String? accessLevel,
   }) async {
     print('🎬 [REPOSITORY] VideoRepository.getVideos called with:');
     print('🎬   - userId: $userId');
@@ -36,6 +37,7 @@ class VideoRepositoryImpl implements VideoRepository {
     print('🎬   - subject: $subject');
     print('🎬   - month: $month');
     print('🎬   - year: $year');
+    print('🎬   - accessLevel: $accessLevel');
     
     if (await networkInfo.isConnected) {
       try {
@@ -47,6 +49,7 @@ class VideoRepositoryImpl implements VideoRepository {
           subject: subject,
           month: month,
           year: year,
+          accessLevel: accessLevel,
         );
         developer.log('📱 Converting ${videoModels.length} video models to entities', name: 'VideoRepository');
         
