@@ -15,23 +15,26 @@ class TodayClassRepositoryImpl implements TodayClassRepository {
   });
 
   @override
-  Future<Either<Failure, List<TodayClass>>> getTodayClasses(String teacherId) async {
-    print('📚 [REPOSITORY] TodayClassRepository.getTodayClasses called with teacherId: $teacherId');
+  Future<Either<Failure, List<TodayClass>>> getTodayClasses(String teacherId, {String? grade, String? subject}) async {
+    print('📚 [REPOSITORY] TodayClassRepository.getTodayClasses called with teacherId: $teacherId, grade: $grade, subject: $subject');
     
     if (await networkInfo.isConnected) {
       try {
         print('📚 [REPOSITORY] Network connected, calling remote data source...');
-        final classModels = await remoteDataSource.getTodayClasses(teacherId);
+        final classModels = await remoteDataSource.getTodayClasses(teacherId, grade: grade, subject: subject);
         print('📚 [REPOSITORY] Successfully fetched ${classModels.length} today class models from remote data source');
         
-        final classes = classModels.map((model) => TodayClass(
-          grade: model.grade,
-          subject: model.subject,
-          teacher: model.teacher,
-          teacherId: model.teacherId,
-          time: model.time,
-          joinUrl: model.joinUrl,
-        )).toList();
+        // Debug: Print zoomId and password for each model
+        for (var model in classModels) {
+          print('📚 [REPOSITORY] Model - zoomId: ${model.zoomId}, password: ${model.password != null ? "***" : null}');
+        }
+        
+        final classes = classModels.map((model) => model.toEntity()).toList();
+        
+        // Debug: Print zoomId and password for each entity
+        for (var cls in classes) {
+          print('📚 [REPOSITORY] Entity - zoomId: ${cls.zoomId}, password: ${cls.password != null ? "***" : null}');
+        }
         
         print('📚 [REPOSITORY] Successfully converted ${classes.length} today class models to entities');
         return Right(classes);

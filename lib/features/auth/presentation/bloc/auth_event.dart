@@ -76,3 +76,7 @@ class SignOutSubmitted extends AuthEvent {
 class CheckAuthStatus extends AuthEvent {
   const CheckAuthStatus();
 }
+
+class RefreshMasterData extends AuthEvent {
+  const RefreshMasterData();
+}

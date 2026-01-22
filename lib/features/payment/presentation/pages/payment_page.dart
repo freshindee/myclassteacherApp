@@ -555,6 +555,7 @@ class _PaymentPageState extends State<PaymentPage> {
                               context.read<PaymentBloc>().add(
                                 CreatePaymentRequested(
                                   userId: widget.userId,
+                                  teacherId: widget.teacherId,
                                   grade: gradeNumber, // Send only the grade number
                                   subject: selectedSubject!,
                                   month: selectedMonth!,
@@ -645,38 +646,66 @@ class _PaymentPageState extends State<PaymentPage> {
                           child: CircularProgressIndicator(),
                         );
                       } else if (state is PayAccountDetailsLoaded) {
-                        return Center(
-                          child: Image.network(
-                            state.sliderImageUrl,
-                            fit: BoxFit.contain,
-                            width: double.infinity,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Center(
-                                child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes != null
-                                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                      : null,
+                        if (state.bankDetailImages.isEmpty) {
+                          return const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.image, size: 64, color: Colors.grey),
+                                SizedBox(height: 16),
+                                Text(
+                                  'No bank details available',
+                                  style: TextStyle(fontSize: 16),
+                                  textAlign: TextAlign.center,
                                 ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.error_outline, size: 64, color: Colors.red),
-                                    SizedBox(height: 16),
-                                    Text(
-                                      'Failed to load account image',
-                                      style: TextStyle(fontSize: 16),
-                                      textAlign: TextAlign.center,
+                              ],
+                            ),
+                          );
+                        }
+                        
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: state.bankDetailImages.map((imageUrl) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: Image.network(
+                                imageUrl,
+                                fit: BoxFit.contain,
+                                width: double.infinity,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Center(
+                                    child: CircularProgressIndicator(
+                                      value: loadingProgress.expectedTotalBytes != null
+                                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                          : null,
                                     ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.red),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.error_outline, size: 48, color: Colors.red),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          'Failed to load image',
+                                          style: TextStyle(fontSize: 14),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            );
+                          }).toList(),
                         );
                       } else if (state is PayAccountDetailsError) {
                         return Center(

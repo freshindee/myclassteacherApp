@@ -22,6 +22,7 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
     try {
       print('🎬 PaymentDataSource: Creating payment in Firestore with data:');
       print('🎬   - userId: ${payment.userId}');
+      print('🎬   - teacherId: ${payment.teacherId}');
       print('🎬   - grade: ${payment.grade} (grade number only)');
       print('🎬   - subject: ${payment.subject}');
       print('🎬   - month: ${payment.month}');
@@ -31,6 +32,7 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
       
       final paymentData = {
         'userId': payment.userId,
+        'teacherId': payment.teacherId,
         'grade': payment.grade, // This now contains only the grade number
         'subject': payment.subject,
         'month': payment.month,

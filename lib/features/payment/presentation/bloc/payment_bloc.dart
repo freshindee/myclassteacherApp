@@ -11,6 +11,7 @@ import '../../domain/usecases/get_pay_account_details.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases.dart';
 import '../../../../core/utils/month_utils.dart';
+import '../../../../core/services/master_data_service.dart';
 part 'payment_event.dart';
 part 'payment_state.dart';
 
@@ -48,6 +49,7 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
 
     print('🎬 PaymentBloc: Creating payment with parameters:');
     print('🎬   - userId: ${event.userId}');
+    print('🎬   - teacherId: ${event.teacherId}');
     print('🎬   - grade: ${event.grade} (grade number only)');
     print('🎬   - subject: ${event.subject}');
     print('🎬   - month: $monthNumber (converted from: ${event.month})');
@@ -57,6 +59,7 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     final payment = Payment(
       id: paymentId,
       userId: event.userId,
+      teacherId: event.teacherId,
       grade: event.grade, // This now contains only the grade number
       subject: event.subject,
       month: monthNumber, // Store as integer
@@ -120,24 +123,39 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
   ) async {
     emit(PayAccountDetailsLoading());
 
-    print('💰 [BLOC] PaymentBloc: Loading pay account details for teacherId: ${event.teacherId}');
+    print('💰 [BLOC] PaymentBloc: Loading bank details from master data for teacherId: ${event.teacherId}');
 
-    final result = await getPayAccountDetails(event.teacherId);
-    
-    result.fold(
-      (failure) {
-        print('💰 [BLOC ERROR] Failed to load pay account details: ${failure.message}');
-        emit(PayAccountDetailsError(failure.message));
-      },
-      (payAccountDetails) {
-        if (payAccountDetails != null) {
-          print('💰 [BLOC] Successfully loaded pay account details with slider URL: ${payAccountDetails.slider1Url}');
-          emit(PayAccountDetailsLoaded(payAccountDetails.slider1Url));
-        } else {
-          print('💰 [BLOC] No pay account details found for teacherId: ${event.teacherId}');
-          emit(const PayAccountDetailsError('No account details found for this teacher'));
-        }
-      },
-    );
+    try {
+      // Load bank details from master data
+      final masterData = await MasterDataService.getTeacherMasterData();
+      
+      if (masterData != null && masterData.bankDetails.isNotEmpty) {
+        print('💰 [BLOC] Successfully loaded ${masterData.bankDetails.length} bank detail images from master data');
+        emit(PayAccountDetailsLoaded(masterData.bankDetails));
+      } else {
+        print('💰 [BLOC] No bank details found in master data for teacherId: ${event.teacherId}');
+        // Fallback to old method if master data doesn't have bank details
+        final result = await getPayAccountDetails(event.teacherId);
+        result.fold(
+          (failure) {
+            print('💰 [BLOC ERROR] Failed to load pay account details: ${failure.message}');
+            emit(PayAccountDetailsError(failure.message));
+          },
+          (payAccountDetails) {
+            if (payAccountDetails != null) {
+              print('💰 [BLOC] Using fallback: loaded pay account details with slider URL: ${payAccountDetails.slider1Url}');
+              // Convert single URL to list for compatibility
+              emit(PayAccountDetailsLoaded([payAccountDetails.slider1Url]));
+            } else {
+              print('💰 [BLOC] No pay account details found for teacherId: ${event.teacherId}');
+              emit(const PayAccountDetailsError('No account details found for this teacher'));
+            }
+          },
+        );
+      }
+    } catch (e) {
+      print('💰 [BLOC ERROR] Error loading bank details: $e');
+      emit(PayAccountDetailsError('Failed to load bank details: $e'));
+    }
   }
 } 

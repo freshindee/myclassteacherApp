@@ -73,4 +73,34 @@ class NoteRepositoryImpl implements NoteRepository {
       return Left(ServerFailure('No internet connection'));
     }
   }
+
+  @override
+  Future<Either<Failure, List<Note>>> getFreeNotes(String teacherId, {String? grade}) async {
+    print('📝 [REPOSITORY] NoteRepository.getFreeNotes called with teacherId: $teacherId, grade: $grade');
+    
+    if (await networkInfo.isConnected) {
+      try {
+        print('📝 [REPOSITORY] Network connected, calling remote data source...');
+        final noteModels = await remoteDataSource.getFreeNotes(teacherId, grade: grade);
+        print('📝 [REPOSITORY] Successfully fetched ${noteModels.length} free note models from remote data source');
+        
+        final notes = noteModels.map((model) => Note(
+          id: model.id,
+          grade: model.grade,
+          title: model.title,
+          description: model.description,
+          pdfUrl: model.pdfUrl,
+        )).toList();
+        
+        print('📝 [REPOSITORY] Successfully converted ${notes.length} free note models to entities');
+        return Right(notes);
+      } catch (e) {
+        print('📝 [REPOSITORY ERROR] Failed to fetch free notes: $e');
+        return Left(ServerFailure(e.toString()));
+      }
+    } else {
+      print('📝 [REPOSITORY ERROR] No internet connection');
+      return Left(ServerFailure('No internet connection'));
+    }
+  }
 } 

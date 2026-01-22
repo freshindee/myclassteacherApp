@@ -5,6 +5,8 @@ import 'video_player_page.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/video.dart';
 import 'free_videos_bloc.dart';
+import 'zoom_class_tab.dart';
+import 'notes_tab.dart';
 import '../../../../core/services/user_session_service.dart';
 import '../../../../core/services/master_data_service.dart';
 
@@ -15,17 +17,28 @@ class FreeVideosPage extends StatefulWidget {
   State<FreeVideosPage> createState() => _FreeVideosPageState();
 }
 
-class _FreeVideosPageState extends State<FreeVideosPage> {
+class _FreeVideosPageState extends State<FreeVideosPage> with SingleTickerProviderStateMixin {
   String? selectedGrade;
   String? teacherId;
   List<String> grades = [];
   bool _isLoadingGrades = true;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      setState(() {}); // Rebuild to update FloatingActionButton visibility
+    });
     _loadTeacherId();
     _loadGrades();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadTeacherId() async {
@@ -84,7 +97,7 @@ class _FreeVideosPageState extends State<FreeVideosPage> {
     if (teacherId == null || _isLoadingGrades) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Free Videos'),
+          title: const Text('නොමිලේ Videos/Classes/Notes'),
           backgroundColor: Colors.blue[600],
           foregroundColor: Colors.white,
         ),
@@ -96,7 +109,7 @@ class _FreeVideosPageState extends State<FreeVideosPage> {
     if (teacherId!.isEmpty) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Free Videos'),
+          title: const Text('නොමිලේ Videos/Classes/Notes'),
           backgroundColor: Colors.blue[600],
           foregroundColor: Colors.white,
         ),
@@ -118,121 +131,33 @@ class _FreeVideosPageState extends State<FreeVideosPage> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Free Videos'),
+        title: const Text('නොමිලේ Videos/Classes/Notes'),
         backgroundColor: Colors.blue[600],
         foregroundColor: Colors.white,
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Video'),
+            Tab(text: 'Zoom Class'),
+            Tab(text: 'Notes'),
+          ],
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+        ),
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                const Text('පන්තිය තෝරන්න : ', style: TextStyle(fontSize: 16)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: grades.isEmpty
-                      ? Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'No grades available',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        )
-                      : DropdownButton<String>(
-                          value: selectedGrade,
-                          hint: const Text('All'),
-                          isExpanded: true,
-                          items: grades.map((grade) {
-                            return DropdownMenuItem(
-                              value: grade,
-                              child: Text('Grade $grade'),
-                            );
-                          }).toList(),
-                          onChanged: (grade) {
-                            setState(() {
-                              selectedGrade = grade;
-                            });
-                            if (teacherId!.isNotEmpty) {
-                              if (grade != null) {
-                                print('🎬 [DEBUG] FreeVideosPage - Calling LoadFreeVideosByGrade with teacherId: "$teacherId", grade: "$grade"');
-                                context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(teacherId!, grade));
-                              } else {
-                                print('🎬 [DEBUG] FreeVideosPage - Calling LoadFreeVideos with teacherId: "$teacherId"');
-                                context.read<FreeVideosBloc>().add(LoadFreeVideos(teacherId!));
-                              }
-                            } else {
-                              print('🎬 [DEBUG] FreeVideosPage - Skipping API call due to empty teacherId');
-                            }
-                          },
-                        ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: BlocBuilder<FreeVideosBloc, FreeVideosState>(
-              builder: (context, state) {
-                if (selectedGrade == null) {
-                  return const Center(
-                    child: Text('වීඩියෝ නැරබීමට පන්තිය තෝරන්න.'),
-                  );
-                }
-                if (state is FreeVideosLoading) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('Loading free videos...'),
-                      ],
-                    ),
-                  );
-                } else if (state is FreeVideosLoaded) {
-                  return _buildVideoList(context, state.videos);
-                } else if (state is FreeVideosError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                        const SizedBox(height: 16),
-                        Text('Error: ${state.message}'),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () {
-                            if (teacherId!.isNotEmpty && selectedGrade != null) {
-                              print('🎬 [DEBUG] FreeVideosPage - Retry - Calling LoadFreeVideosByGrade with teacherId: "$teacherId", grade: "$selectedGrade"');
-                              context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(teacherId!, selectedGrade!));
-                            }
-                          },
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.video_library, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('No videos available'),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
+          // Video Tab - Contains the existing video content
+          _buildVideoTab(),
+          // Zoom Class Tab
+          _buildZoomClassTab(),
+          // Notes Tab
+          _buildNotesTab(),
         ],
       ),
-      floatingActionButton: selectedGrade != null && teacherId!.isNotEmpty
+      floatingActionButton: _tabController.index == 0 && selectedGrade != null && teacherId!.isNotEmpty
           ? FloatingActionButton(
               onPressed: () {
                 print('🎬 [DEBUG] FreeVideosPage - Refresh - Calling LoadFreeVideosByGrade with teacherId: "$teacherId", grade: "$selectedGrade"');
@@ -243,6 +168,138 @@ class _FreeVideosPageState extends State<FreeVideosPage> {
               child: const Icon(Icons.refresh),
             )
           : null,
+    );
+  }
+
+  Widget _buildVideoTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              const Text('පන්තිය තෝරන්න : ', style: TextStyle(fontSize: 16)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: grades.isEmpty
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'No grades available',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    : DropdownButton<String>(
+                        value: selectedGrade,
+                        hint: const Text('All'),
+                        isExpanded: true,
+                        items: grades.map((grade) {
+                          return DropdownMenuItem(
+                            value: grade,
+                            child: Text('Grade $grade'),
+                          );
+                        }).toList(),
+                        onChanged: (grade) {
+                          setState(() {
+                            selectedGrade = grade;
+                          });
+                          if (teacherId!.isNotEmpty) {
+                            if (grade != null) {
+                              print('🎬 [DEBUG] FreeVideosPage - Calling LoadFreeVideosByGrade with teacherId: "$teacherId", grade: "$grade"');
+                              context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(teacherId!, grade));
+                            } else {
+                              print('🎬 [DEBUG] FreeVideosPage - Calling LoadFreeVideos with teacherId: "$teacherId"');
+                              context.read<FreeVideosBloc>().add(LoadFreeVideos(teacherId!));
+                            }
+                          } else {
+                            print('🎬 [DEBUG] FreeVideosPage - Skipping API call due to empty teacherId');
+                          }
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: BlocBuilder<FreeVideosBloc, FreeVideosState>(
+            builder: (context, state) {
+              if (selectedGrade == null) {
+                return const Center(
+                  child: Text('වීඩියෝ නැරබීමට පන්තිය තෝරන්න.'),
+                );
+              }
+              if (state is FreeVideosLoading) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Loading free videos...'),
+                    ],
+                  ),
+                );
+              } else if (state is FreeVideosLoaded) {
+                return _buildVideoList(context, state.videos);
+              } else if (state is FreeVideosError) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                      const SizedBox(height: 16),
+                      Text('Error: ${state.message}'),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (teacherId!.isNotEmpty && selectedGrade != null) {
+                            print('🎬 [DEBUG] FreeVideosPage - Retry - Calling LoadFreeVideosByGrade with teacherId: "$teacherId", grade: "$selectedGrade"');
+                            context.read<FreeVideosBloc>().add(LoadFreeVideosByGrade(teacherId!, selectedGrade!));
+                          }
+                        },
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.video_library, size: 64, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text('No videos available'),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildZoomClassTab() {
+    return ZoomClassTab(
+      selectedGrade: selectedGrade,
+      teacherId: teacherId,
+      grades: grades,
+      onGradeChanged: (grade) {
+        setState(() {
+          selectedGrade = grade;
+        });
+      },
+    );
+  }
+
+  Widget _buildNotesTab() {
+    return NotesTab(
+      grades: grades,
     );
   }
 

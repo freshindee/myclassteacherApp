@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 class Payment extends Equatable {
   final String id;
   final String userId;
+  final String teacherId;
   final String grade;
   final String subject;
   final int month;
@@ -16,6 +17,7 @@ class Payment extends Equatable {
   const Payment({
     required this.id,
     required this.userId,
+    required this.teacherId,
     required this.grade,
     required this.subject,
     required this.month,
@@ -31,6 +33,7 @@ class Payment extends Equatable {
   List<Object?> get props => [
         id,
         userId,
+        teacherId,
         grade,
         subject,
         month,

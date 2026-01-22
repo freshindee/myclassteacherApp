@@ -290,7 +290,7 @@ class _PastMonthsRecordingsPageState extends State<PastMonthsRecordingsPage> {
     if (user == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('පසුගිය මාසවල රෙකෝඩින්'),
+          title: const Text('පසුගිය වීඩියෝ පාඩම්'),
           backgroundColor: Colors.purple,
           foregroundColor: Colors.white,
         ),
@@ -302,7 +302,7 @@ class _PastMonthsRecordingsPageState extends State<PastMonthsRecordingsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('පසුගිය මාසවල රෙකෝඩින්'),
+        title: const Text('පසුගිය වීඩියෝ පාඩම්'),
         backgroundColor: Colors.purple,
         foregroundColor: Colors.white,
       ),
@@ -470,8 +470,8 @@ class _PastMonthsRecordingsPageState extends State<PastMonthsRecordingsPage> {
                                     const SizedBox(height: 16),
                                     Text(
                                       _selectedGrade == null
-                                          ? 'Please select a grade to view months'
-                                          : 'Please select a subject to view months',
+                                          ? 'වීඩියෝ නැරබීමට පන්තිය හා විෂය තෝරන්න'
+                                          : 'වීඩියෝ නැරබීමට පන්තිය හා විෂය තෝරන්න',
                                       style: TextStyle(
                                         fontSize: 16,
                                         color: Colors.grey[600],

@@ -5,6 +5,7 @@ import '../../domain/entities/payment.dart';
 class PaymentModel extends Equatable {
   final String id;
   final String userId;
+  final String teacherId;
   final String grade;
   final String subject;
   final int month;
@@ -18,6 +19,7 @@ class PaymentModel extends Equatable {
   const PaymentModel({
     required this.id,
     required this.userId,
+    required this.teacherId,
     required this.grade,
     required this.subject,
     required this.month,
@@ -30,12 +32,13 @@ class PaymentModel extends Equatable {
   });
 
   @override
-  List<Object?> get props => [id, userId, grade, subject, month, year, amount, status, createdAt, completedAt, slipUrl];
+  List<Object?> get props => [id, userId, teacherId, grade, subject, month, year, amount, status, createdAt, completedAt, slipUrl];
 
   factory PaymentModel.fromJson(Map<String, dynamic> json) {
     return PaymentModel(
       id: json['id'] as String,
       userId: json['userId'] as String,
+      teacherId: json['teacherId'] as String? ?? '', // Handle backward compatibility for old payments
       grade: json['grade'] as String,
       subject: json['subject'] as String,
       month: json['month'] as int,
@@ -54,6 +57,7 @@ class PaymentModel extends Equatable {
     return {
       'id': id,
       'userId': userId,
+      'teacherId': teacherId,
       'grade': grade,
       'subject': subject,
       'month': month,
@@ -70,6 +74,7 @@ class PaymentModel extends Equatable {
     return Payment(
       id: id,
       userId: userId,
+      teacherId: teacherId,
       grade: grade,
       subject: subject,
       month: month,

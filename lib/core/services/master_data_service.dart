@@ -157,6 +157,7 @@ class MasterDataService {
   // Save teacher master data
   static Future<void> saveTeacherMasterData(TeacherMasterData masterData) async {
     final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
     await prefs.setString(_teacherMasterDataKey, jsonEncode({
       'teacherId': masterData.teacherId,
       'grades': masterData.grades,
@@ -171,8 +172,11 @@ class MasterDataService {
         'phone': t.phone,
         'displayId': t.displayId,
       }).toList(),
+      'bankDetails': masterData.bankDetails,
+      'sliderImages': masterData.sliderImages,
       'createdAt': masterData.createdAt?.toIso8601String(),
       'updatedAt': masterData.updatedAt?.toIso8601String(),
+      'cachedAt': now.toIso8601String(), // Add cache timestamp
     }));
     
     // Also convert and save as Grade and Subject entities for backward compatibility
@@ -205,6 +209,27 @@ class MasterDataService {
     try {
       print('📦 [DEBUG] MasterDataService - Found master data in SharedPreferences');
       final masterDataMap = jsonDecode(masterDataJson) as Map<String, dynamic>;
+      
+      // Check cache timestamp
+      DateTime? cachedAt;
+      if (masterDataMap['cachedAt'] != null) {
+        cachedAt = DateTime.parse(masterDataMap['cachedAt']);
+        final now = DateTime.now();
+        final difference = now.difference(cachedAt);
+        
+        print('📦 [DEBUG] MasterDataService - Cache age: ${difference.inHours} hours ${difference.inMinutes % 60} minutes');
+        
+        // If cache is older than 2 hours, return null to trigger refresh
+        if (difference.inHours >= 2) {
+          print('📦 [DEBUG] MasterDataService - Cache is older than 2 hours, needs refresh');
+          return null;
+        }
+      } else {
+        // If no cachedAt timestamp exists, treat as old cache and refresh
+        print('📦 [DEBUG] MasterDataService - No cachedAt timestamp, needs refresh');
+        return null;
+      }
+      
       final teacherId = masterDataMap['teacherId'] as String;
       final grades = List<String>.from(masterDataMap['grades'] as List);
       final subjects = List<String>.from(masterDataMap['subjects'] as List);
@@ -221,12 +246,22 @@ class MasterDataService {
         displayId: json['displayId'] as String? ?? '',
       )).toList();
       
+      // Parse bankDetails array
+      final bankDetailsList = masterDataMap['bankDetails'] as List<dynamic>? ?? [];
+      final bankDetails = bankDetailsList.map((e) => e.toString()).toList();
+      
+      // Parse sliderImages array
+      final sliderImagesList = masterDataMap['sliderImages'] as List<dynamic>? ?? [];
+      final sliderImages = sliderImagesList.map((e) => e.toString()).toList();
+      
       print('📦 [DEBUG] MasterDataService - teacherId: $teacherId');
       print('📦 [DEBUG] MasterDataService - grades count: ${grades.length}');
       print('📦 [DEBUG] MasterDataService - grades: $grades');
       print('📦 [DEBUG] MasterDataService - subjects count: ${subjects.length}');
       print('📦 [DEBUG] MasterDataService - subjects: $subjects');
       print('📦 [DEBUG] MasterDataService - teachers count: ${teachers.length}');
+      print('📦 [DEBUG] MasterDataService - bankDetails count: ${bankDetails.length}');
+      print('📦 [DEBUG] MasterDataService - sliderImages count: ${sliderImages.length}');
       
       return TeacherMasterData(
         teacherId: teacherId,
@@ -243,6 +278,8 @@ class MasterDataService {
           ),
         ),
         teachers: teachers,
+        bankDetails: bankDetails,
+        sliderImages: sliderImages,
         createdAt: masterDataMap['createdAt'] != null 
             ? DateTime.parse(masterDataMap['createdAt']) 
             : null,
@@ -263,6 +300,31 @@ class MasterDataService {
       return null;
     }
     return masterData.pricing[subject]?[grade];
+  }
+
+  // Check if master data needs refresh
+  static Future<bool> shouldRefreshMasterData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final masterDataJson = prefs.getString(_teacherMasterDataKey);
+    if (masterDataJson == null) {
+      return true; // No cache, needs refresh
+    }
+    
+    try {
+      final masterDataMap = jsonDecode(masterDataJson) as Map<String, dynamic>;
+      if (masterDataMap['cachedAt'] == null) {
+        return true; // No timestamp, needs refresh
+      }
+      
+      final cachedAt = DateTime.parse(masterDataMap['cachedAt']);
+      final now = DateTime.now();
+      final difference = now.difference(cachedAt);
+      
+      return difference.inHours >= 2; // Refresh if older than 2 hours
+    } catch (e) {
+      print('❌ [DEBUG] MasterDataService - Error checking cache age: $e');
+      return true; // Error parsing, needs refresh
+    }
   }
 
   // Clear all master data

@@ -9,6 +9,7 @@ abstract class PaymentEvent extends Equatable {
 
 class CreatePaymentRequested extends PaymentEvent {
   final String userId;
+  final String teacherId;
   final String grade;
   final String subject;
   final String month;
@@ -18,6 +19,7 @@ class CreatePaymentRequested extends PaymentEvent {
 
   const CreatePaymentRequested({
     required this.userId,
+    required this.teacherId,
     required this.grade,
     required this.subject,
     required this.month,
@@ -27,7 +29,7 @@ class CreatePaymentRequested extends PaymentEvent {
   });
 
   // @override
-  // List<Object>! get props => [userId, grade, subject, month, year, amount, slipUrl];
+  // List<Object>! get props => [userId, teacherId, grade, subject, month, year, amount, slipUrl];
 }
 
 class CheckAccessRequested extends PaymentEvent {

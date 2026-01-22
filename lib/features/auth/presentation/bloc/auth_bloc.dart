@@ -41,6 +41,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<SignOutSubmitted>(_onSignOutSubmitted);
     on<CheckAuthStatus>(_onCheckAuthStatus);
     on<TeacherIdChanged>(_onTeacherIdChanged);
+    on<RefreshMasterData>(_onRefreshMasterData);
   }
 
   String? _validateTeacherId(String teacherId) {
@@ -393,11 +394,66 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         status: FormzStatus.submissionSuccess,
         user: user,
       ));
+      
+      // Check if master data needs refresh (older than 2 hours)
+      if (user.teacherId != null && user.teacherId!.isNotEmpty) {
+        final shouldRefresh = await MasterDataService.shouldRefreshMasterData();
+        if (shouldRefresh) {
+          print('🔄 AuthBloc: Master data cache is older than 2 hours, refreshing...');
+          // Refresh master data in background
+          _refreshMasterDataInBackground(user.teacherId!);
+        } else {
+          print('✅ AuthBloc: Master data cache is still fresh (less than 2 hours old)');
+        }
+      }
     } else {
       emit(state.copyWith(
         status: FormzStatus.pure,
         user: null,
       ));
+    }
+  }
+
+  // Handler for manual refresh master data event
+  Future<void> _onRefreshMasterData(
+    RefreshMasterData event,
+    Emitter<AuthState> emit,
+  ) async {
+    final user = state.user;
+    if (user?.teacherId == null || user!.teacherId!.isEmpty) {
+      print('⚠️ AuthBloc: Cannot refresh master data - no teacherId');
+      return;
+    }
+    
+    await _refreshMasterDataInBackground(user.teacherId!);
+  }
+
+  // Helper method to refresh master data in background
+  Future<void> _refreshMasterDataInBackground(String teacherId) async {
+    try {
+      print('🔄 AuthBloc: Refreshing master data for teacherId: $teacherId');
+      
+      // Fetch fresh master data from Firebase
+      final masterDataResult = await getTeacherMasterData(teacherId);
+      masterDataResult.fold(
+        (failure) {
+          print('⚠️ AuthBloc: Failed to refresh master data: ${failure.message}');
+          // Keep using cached data if refresh fails
+        },
+        (masterData) async {
+          if (masterData != null) {
+            await MasterDataService.saveTeacherMasterData(masterData);
+            print('✅ AuthBloc: Refreshed master data (${masterData.grades.length} grades, ${masterData.subjects.length} subjects, ${masterData.teachers.length} teachers)');
+            print('✅ AuthBloc: Bank details count: ${masterData.bankDetails.length}');
+            print('✅ AuthBloc: Slider images count: ${masterData.sliderImages.length}');
+          } else {
+            print('⚠️ AuthBloc: No master data found during refresh');
+          }
+        },
+      );
+    } catch (e) {
+      print('⚠️ AuthBloc: Error refreshing master data: $e');
+      // Keep using cached data if refresh fails
     }
   }
 

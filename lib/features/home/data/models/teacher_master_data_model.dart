@@ -10,6 +10,8 @@ class TeacherMasterDataModel extends TeacherMasterData {
     required super.subjects,
     required super.pricing,
     required super.teachers,
+    super.bankDetails,
+    super.sliderImages,
     super.createdAt,
     super.updatedAt,
   });
@@ -58,6 +60,14 @@ class TeacherMasterDataModel extends TeacherMasterData {
       );
     }).toList();
     
+    // Parse bank_details array
+    final bankDetailsList = data['bank_details'] as List<dynamic>? ?? [];
+    final bankDetails = bankDetailsList.map((e) => e.toString()).toList();
+    
+    // Parse sliderImages array
+    final sliderImagesList = data['sliderImages'] as List<dynamic>? ?? [];
+    final sliderImages = sliderImagesList.map((e) => e.toString()).toList();
+    
     // Parse timestamps
     DateTime? createdAt;
     DateTime? updatedAt;
@@ -84,6 +94,8 @@ class TeacherMasterDataModel extends TeacherMasterData {
       subjects: subjects,
       pricing: pricing,
       teachers: teachers,
+      bankDetails: bankDetails,
+      sliderImages: sliderImages,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -104,6 +116,8 @@ class TeacherMasterDataModel extends TeacherMasterData {
         'phone': teacher.phone,
         'display_id': teacher.displayId,
       }).toList(),
+      'bank_details': bankDetails,
+      'sliderImages': sliderImages,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
     };
@@ -116,6 +130,8 @@ class TeacherMasterDataModel extends TeacherMasterData {
       subjects: subjects,
       pricing: pricing,
       teachers: teachers,
+      bankDetails: bankDetails,
+      sliderImages: sliderImages,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );

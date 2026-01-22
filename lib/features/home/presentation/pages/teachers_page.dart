@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../domain/entities/teacher.dart';
 import '../../../../core/services/master_data_service.dart';
 
@@ -166,6 +167,44 @@ class _TeachersPageState extends State<TeachersPage> {
     
     print('🖼️ TeachersPage: Returning original URL: $url');
     return url;
+  }
+
+  // Helper method to launch WhatsApp
+  Future<void> _launchWhatsApp(String phoneNumber) async {
+    // Remove any non-digit characters except +
+    final cleanPhone = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
+    
+    // If phone doesn't start with +, assume it's a local number and add country code
+    // You may need to adjust this based on your country code
+    final whatsappNumber = cleanPhone.startsWith('+') ? cleanPhone : '+94$cleanPhone';
+    
+    final whatsappUrl = 'https://wa.me/$whatsappNumber';
+    
+    try {
+      final uri = Uri.parse(whatsappUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not launch WhatsApp'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('❌ TeachersPage: Error launching WhatsApp: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -525,7 +564,7 @@ class _TeachersPageState extends State<TeachersPage> {
                         
                         const SizedBox(height: 16),
                         
-                        // Phone Info
+                        // Phone and WhatsApp Info
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
@@ -553,7 +592,7 @@ class _TeachersPageState extends State<TeachersPage> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  teacher.phone,
+                                  teacher.phone.isNotEmpty ? teacher.phone : 'No phone number',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
@@ -563,6 +602,43 @@ class _TeachersPageState extends State<TeachersPage> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (teacher.phone.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                // WhatsApp Button
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () => _launchWhatsApp(teacher.phone),
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF25D366), // WhatsApp green
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.chat,
+                                            size: 18,
+                                            color: Colors.white,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          const Text(
+                                            'WhatsApp',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),

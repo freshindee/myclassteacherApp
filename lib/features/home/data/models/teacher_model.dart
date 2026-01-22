@@ -20,9 +20,14 @@ class TeacherModel {
   });
 
   factory TeacherModel.fromJson(Map<String, dynamic> json) {
+    // Handle teacherName field - use it if name is not available
+    final name = json['name'] as String? ?? 
+                 json['teacherName'] as String? ?? 
+                 '';
+    
     return TeacherModel(
       id: json['id']?.toString() ?? '',
-      name: json['name'] as String? ?? '',
+      name: name,
       subject: json['subject'] as String? ?? '',
       grade: json['grade'] as String? ?? '',
       image: json['image'] as String? ?? '',

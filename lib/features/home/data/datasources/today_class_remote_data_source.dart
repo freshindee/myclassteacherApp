@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/today_class_model.dart';
 
 abstract class TodayClassRemoteDataSource {
-  Future<List<TodayClassModel>> getTodayClasses(String teacherId);
+  Future<List<TodayClassModel>> getTodayClasses(String teacherId, {String? grade, String? subject});
 }
 
 class TodayClassRemoteDataSourceImpl implements TodayClassRemoteDataSource {
@@ -10,9 +10,9 @@ class TodayClassRemoteDataSourceImpl implements TodayClassRemoteDataSource {
   TodayClassRemoteDataSourceImpl({required this.firestore});
 
   @override
-  Future<List<TodayClassModel>> getTodayClasses(String teacherId) async {
+  Future<List<TodayClassModel>> getTodayClasses(String teacherId, {String? grade, String? subject}) async {
     try {
-      print('📚 [API REQUEST] TodayClassDataSource.getTodayClasses called with teacherId: $teacherId');
+      print('📚 [API REQUEST] TodayClassDataSource.getTodayClasses called with teacherId: $teacherId, grade: $grade, subject: $subject');
       
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
@@ -20,17 +20,34 @@ class TodayClassRemoteDataSourceImpl implements TodayClassRemoteDataSource {
       
       print('📚 [API REQUEST] Querying for today: $today, day of week: $dayOfWeek');
       
-      final querySnapshot = await firestore
+      Query query = firestore
           .collection('today_classes')
           .where('teacherId', isEqualTo: teacherId)
-          .where('day', isEqualTo: dayOfWeek)
-          .get();
+          .where('day', isEqualTo: dayOfWeek);
+      
+      // Add grade filter if provided
+      if (grade != null && grade.isNotEmpty) {
+        query = query.where('grade', isEqualTo: grade);
+        print('📚 [API REQUEST] Filtering by grade: $grade');
+      }
+      
+      // Add subject filter if provided
+      if (subject != null && subject.isNotEmpty) {
+        query = query.where('subject', isEqualTo: subject);
+        print('📚 [API REQUEST] Filtering by subject: $subject');
+      }
+      
+      final querySnapshot = await query.get();
       
       print('📚 [API RESPONSE] Found ${querySnapshot.docs.length} today class documents for teacherId: $teacherId, day: $dayOfWeek');
       
       final classes = querySnapshot.docs.map((doc) {
-        final data = doc.data();
-        print('📚 [API RESPONSE] Today class document ${doc.id}: $data');
+        final data = doc.data() as Map<String, dynamic>;
+        print('📚 [API RESPONSE] Today class document ${doc.id}:');
+        print('📚 [API RESPONSE] Raw data keys: ${data.keys.toList()}');
+        print('📚 [API RESPONSE] zoomId value: ${data['zoomId']} (type: ${data['zoomId']?.runtimeType})');
+        print('📚 [API RESPONSE] password value: ${data['password']} (type: ${data['password']?.runtimeType})');
+        print('📚 [API RESPONSE] Full data: $data');
         return TodayClassModel.fromJson({
           'id': doc.id,
           ...data,

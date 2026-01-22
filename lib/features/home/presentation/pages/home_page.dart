@@ -25,6 +25,7 @@ import '../../domain/usecases/get_term_test_papers.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import '../bloc/slider_bloc.dart';
 import '../../../auth/presentation/pages/profile_page.dart';
+import 'online_exam_selection_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -170,6 +171,89 @@ class _HomePageState extends State<HomePage> {
                 
                 const SizedBox(height: 20),
 
+                // Online Exam Tile
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const OnlineExamSelectionPage(),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(20.0),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.blue.shade600,
+                              Colors.blue.shade800,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.quiz,
+                                size: 40,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'ප්‍රශ්න පත්‍ර ලියමු',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'ශ්‍රේණිය සහ විෂය තෝරාගන්න',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.arrow_forward_ios,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(height: 20),
+
                 // Main Menu Grid
                 GridView.count(
                   padding: const EdgeInsets.all(16.0),
@@ -181,7 +265,7 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     _buildMenuCard(
                       context,
-                      'වීඩියෝ පාඩම්',
+                      'නොමිලේ පාඩම්',
                       Icons.play_circle_outline,
                       Colors.green,
                       () => Navigator.push(
@@ -196,7 +280,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     _buildMenuCard(
                       context,
-                      'පන්තිවල රෙකෝඩින්',
+                      'අලුත් වීඩියෝ පාඩම්',
                       Icons.video_library,
                       Colors.red,
                       () => Navigator.push(
@@ -276,7 +360,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     _buildMenuCard(
                       context,
-                      'පසුගිය මාසවල රෙකෝඩින්',
+                      'පසුගිය වීඩියෝ පාඩම්',
                       Icons.video_library,
                       Colors.purple,
                       () => Navigator.push(
@@ -303,7 +387,7 @@ class _HomePageState extends State<HomePage> {
           switch (index) {
             case 0: // Home - already on home page
               break;
-            case 1: // Contact Us
+            case 1: // Learning Journey / Progress
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -327,8 +411,8 @@ class _HomePageState extends State<HomePage> {
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.contact_page),
-            label: 'Contact Us',
+            icon: Icon(Icons.query_stats),
+            label: 'Progress',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),

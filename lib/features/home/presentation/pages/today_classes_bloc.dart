@@ -2,7 +2,6 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/today_class.dart';
 import '../../domain/usecases/get_today_classes.dart';
-import '../../../../core/usecases.dart';
 
 part 'today_classes_event.dart';
 part 'today_classes_state.dart';
@@ -18,7 +17,8 @@ class TodayClassesBloc extends Bloc<TodayClassesEvent, TodayClassesState> {
     Emitter<TodayClassesState> emit,
   ) async {
     emit(TodayClassesLoading());
-    final result = await getTodayClasses(event.teacherId);
+    final params = GetTodayClassesParams(teacherId: event.teacherId, grade: event.grade, subject: event.subject);
+    final result = await getTodayClasses(params);
     result.fold(
       (failure) => emit(TodayClassesError(failure.toString())),
       (classes) => emit(TodayClassesLoaded(classes)),

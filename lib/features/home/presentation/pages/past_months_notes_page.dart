@@ -309,7 +309,7 @@ class _PastMonthsNotesPageState extends State<PastMonthsNotesPage> {
     if (user == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('පසුගිය මාසවල නිබන්ධන'),
+          title: const Text('පන්තියේ සටහන් හා ප්‍රශ්න පත්‍ර'),
           backgroundColor: Colors.orange,
           foregroundColor: Colors.white,
         ),
@@ -321,7 +321,7 @@ class _PastMonthsNotesPageState extends State<PastMonthsNotesPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('පසුගිය මාසවල නිබන්ධන'),
+        title: const Text('පන්තියේ සටහන් හා ප්‍රශ්න පත්‍ර'),
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
       ),
@@ -476,8 +476,8 @@ class _PastMonthsNotesPageState extends State<PastMonthsNotesPage> {
                                     const SizedBox(height: 16),
                                     Text(
                                       _selectedGrade == null
-                                          ? 'Please select a grade to view months'
-                                          : 'Please select a subject to view months',
+                                          ? 'නිබන්ධන ලබාගැනීමට පන්තිය හා විෂය තෝරන්න'
+                                          : 'නිබන්ධන ලබාගැනීමට පන්තිය හා විෂය තෝරන්න',
                                       style: TextStyle(
                                         fontSize: 16,
                                         color: Colors.grey[600],

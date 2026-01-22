@@ -34,12 +34,12 @@ class AccessChecked extends PaymentState {
 class PayAccountDetailsLoading extends PaymentState {}
 
 class PayAccountDetailsLoaded extends PaymentState {
-  final String sliderImageUrl;
+  final List<String> bankDetailImages;
 
-  const PayAccountDetailsLoaded(this.sliderImageUrl);
+  const PayAccountDetailsLoaded(this.bankDetailImages);
 
   @override
-  List<Object> get props => [sliderImageUrl];
+  List<Object> get props => [bankDetailImages];
 }
 
 class PayAccountDetailsError extends PaymentState {

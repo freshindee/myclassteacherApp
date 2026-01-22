@@ -50,6 +50,8 @@ import 'features/payment/domain/usecases/get_user_subscriptions.dart';
 import 'features/payment/domain/usecases/get_user_payments.dart';
 import 'features/home/domain/usecases/get_free_videos.dart';
 import 'features/home/presentation/pages/free_videos_bloc.dart';
+import 'features/home/domain/usecases/get_free_notes.dart';
+import 'features/home/presentation/pages/free_notes_bloc.dart';
 import 'features/home/domain/usecases/get_today_classes.dart';
 import 'features/home/domain/repositories/today_class_repository.dart';
 import 'features/home/data/repositories/today_class_repository_impl.dart';
@@ -84,6 +86,24 @@ import 'features/home/data/datasources/teacher_master_data_remote_data_source.da
 import 'features/home/data/repositories/teacher_master_data_repository_impl.dart';
 import 'features/home/domain/repositories/teacher_master_data_repository.dart';
 import 'features/home/domain/usecases/get_teacher_master_data.dart';
+import 'core/network/api_client.dart';
+import 'core/constants/api_endpoints.dart';
+import 'features/home/data/datasources/exam_subject_remote_data_source.dart';
+import 'features/home/data/repositories/exam_subject_repository_impl.dart';
+import 'features/home/domain/repositories/exam_subject_repository.dart';
+import 'features/home/domain/usecases/get_exam_subjects.dart';
+import 'features/home/data/datasources/exam_chapter_remote_data_source.dart';
+import 'features/home/data/repositories/exam_chapter_repository_impl.dart';
+import 'features/home/domain/repositories/exam_chapter_repository.dart';
+import 'features/home/domain/usecases/get_exam_chapters.dart';
+import 'features/home/data/datasources/exam_paper_remote_data_source.dart';
+import 'features/home/data/repositories/exam_paper_repository_impl.dart';
+import 'features/home/domain/repositories/exam_paper_repository.dart';
+import 'features/home/domain/usecases/get_exam_papers.dart';
+import 'features/home/data/datasources/exam_question_remote_data_source.dart';
+import 'features/home/data/repositories/exam_question_repository_impl.dart';
+import 'features/home/domain/repositories/exam_question_repository.dart';
+import 'features/home/domain/usecases/get_exam_questions.dart';
 
 final sl = GetIt.instance;
 
@@ -160,6 +180,11 @@ void init() {
       getSliderImages: sl(),
     ),
   );
+  sl.registerFactory(
+    () => FreeNotesBloc(
+      getFreeNotes: sl(),
+    ),
+  );
 
   // Use cases
   sl.registerLazySingleton(() => SignIn(sl()));
@@ -182,12 +207,17 @@ void init() {
   sl.registerLazySingleton(() => GetUserPayments(sl()));
   sl.registerLazySingleton(() => GetFreeVideos(sl()));
   sl.registerLazySingleton(() => GetFreeVideosByGrade(sl()));
+  sl.registerLazySingleton(() => GetFreeNotes(sl()));
   sl.registerLazySingleton(() => GetTeachers(sl()));
   sl.registerLazySingleton(() => GetTermTestPapers(sl()));
   sl.registerLazySingleton(() => GetSliderImages(sl()));
   sl.registerLazySingleton(() => GetSubjects(sl()));
   sl.registerLazySingleton(() => GetGrades(sl()));
   sl.registerLazySingleton(() => GetTeacherMasterData(sl()));
+  sl.registerLazySingleton(() => GetExamSubjects(sl()));
+  sl.registerLazySingleton(() => GetExamChapters(sl()));
+  sl.registerLazySingleton(() => GetExamPapers(sl()));
+  sl.registerLazySingleton(() => GetExamQuestions(sl()));
 
   // Repositories
   sl.registerLazySingleton<AuthRepository>(
@@ -274,6 +304,30 @@ void init() {
       networkInfo: sl(),
     ),
   );
+  sl.registerLazySingleton<ExamSubjectRepository>(
+    () => ExamSubjectRepositoryImpl(
+      remoteDataSource: sl(),
+      networkInfo: sl(),
+    ),
+  );
+  sl.registerLazySingleton<ExamChapterRepository>(
+    () => ExamChapterRepositoryImpl(
+      remoteDataSource: sl(),
+      networkInfo: sl(),
+    ),
+  );
+  sl.registerLazySingleton<ExamPaperRepository>(
+    () => ExamPaperRepositoryImpl(
+      remoteDataSource: sl(),
+      networkInfo: sl(),
+    ),
+  );
+  sl.registerLazySingleton<ExamQuestionRepository>(
+    () => ExamQuestionRepositoryImpl(
+      remoteDataSource: sl(),
+      networkInfo: sl(),
+    ),
+  );
 
   // Data sources
   sl.registerLazySingleton<AuthRemoteDataSource>(
@@ -321,10 +375,25 @@ void init() {
   sl.registerLazySingleton<TeacherMasterDataRemoteDataSource>(
     () => TeacherMasterDataRemoteDataSourceImpl(firestore: sl()),
   );
+  sl.registerLazySingleton<ExamSubjectRemoteDataSource>(
+    () => ExamSubjectRemoteDataSourceImpl(apiClient: sl()),
+  );
+  sl.registerLazySingleton<ExamChapterRemoteDataSource>(
+    () => ExamChapterRemoteDataSourceImpl(apiClient: sl()),
+  );
+  sl.registerLazySingleton<ExamPaperRemoteDataSource>(
+    () => ExamPaperRemoteDataSourceImpl(apiClient: sl()),
+  );
+  sl.registerLazySingleton<ExamQuestionRemoteDataSource>(
+    () => ExamQuestionRemoteDataSourceImpl(apiClient: sl()),
+  );
 
   // Core
   sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
   sl.registerLazySingleton<CryptoService>(() => CryptoService());
+  sl.registerLazySingleton<ApiClient>(
+    () => ApiClient(baseUrl: ApiEndpoints.examApiBaseUrl),
+  );
 
   // External
   sl.registerLazySingleton(() => FirebaseFirestore.instance);

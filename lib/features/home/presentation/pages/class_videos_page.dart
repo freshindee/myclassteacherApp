@@ -179,8 +179,8 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('No Payment Found'),
-            content: Text('You have not paid for Grade $grade - $subject for this month.'),
+            title: const Text('ඔබ පන්ති ගාස්තු ගෙවා නැත'),
+            content: Text('ඔබ මෙම මාසයට Grade $grade - $subject සඳහා පන්ති ගාස්තු ගෙවා නැත.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
@@ -206,7 +206,7 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
       // User is not logged in, show a message and a login button
       return Scaffold(
         appBar: AppBar(
-          title: const Text('පන්ති වීඩියෝ නරබන්න '),
+          title: const Text('අලුත් වීඩියෝ පාඩම්'),
           backgroundColor: Colors.red,
           foregroundColor: Colors.white,
         ),
@@ -247,7 +247,7 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
         builder: (context) {
           return Scaffold(
             appBar: AppBar(
-              title: const Text('පන්ති වීඩියෝ නරබන්න '),
+              title: const Text('අලුත් වීඩියෝ පාඩම්'),
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
               // actions: [
@@ -512,7 +512,7 @@ class _ClassVideosPageState extends State<ClassVideosPage> {
                                 );
                               }
                               return const Center(
-                                  child: Text('Select a class to see the videos.'));
+                                  child: Text('වීඩියෝ නැරබීමට පන්තිය හා විෂය තෝරන්න'));
                             },
                           ),
                 ),

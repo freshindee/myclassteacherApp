@@ -1,338 +1,441 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:url_launcher/url_launcher.dart';
-import '../../../../injection_container.dart';
-import '../../domain/entities/contact.dart';
-import 'contact_bloc.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'dart:ui';
+import 'package:intl/intl.dart';
 import '../../../../core/services/user_session_service.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../injection_container.dart';
+import '../../../../core/constants/api_endpoints.dart';
 
-class DisplayContactDetailsPage extends StatelessWidget {
+/// Learning Journey Page - Shows exam progress and history
+class DisplayContactDetailsPage extends StatefulWidget {
   const DisplayContactDetailsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: UserSessionService.getCurrentUser(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
-        }
-        final user = snapshot.data;
-        final teacherId = user?.teacherId ?? '';
-        return BlocProvider(
-          create: (context) => sl<ContactBloc>()..add(LoadContacts(teacherId)),
-          child: Scaffold(
-            appBar: AppBar(
-              title: const Text('Contact Details'),
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-            ),
-            body: Column(
-              children: [
-                Expanded(
-                  child: BlocBuilder<ContactBloc, ContactState>(
-                    builder: (context, state) {
-                      if (state is ContactLoading) {
-                        return const Center(child: CircularProgressIndicator());
-                      } else if (state is ContactLoaded) {
-                        return _buildContactList(context, state.contacts);
-                      } else if (state is ContactError) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.error_outline, size: 64, color: Colors.red),
-                              SizedBox(height: 16),
-                              Text('Error:  [${state.message}]'),
-                              SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: () {
-                                  context.read<ContactBloc>().add(LoadContacts(teacherId));
-                                },
-                                child: const Text('Retry'),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                      return const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.contact_page, size: 64, color: Colors.grey),
-                            SizedBox(height: 16),
-                            Text('No contact information available'),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  State<DisplayContactDetailsPage> createState() => _DisplayContactDetailsPageState();
+}
+
+class _DisplayContactDetailsPageState extends State<DisplayContactDetailsPage> {
+  bool _isLoading = true;
+  List<ExamAttempt> _attempts = [];
+  double _avgScore = 0.0;
+  int _totalExams = 0;
+  int _studyHours = 0;
+
+  final ApiClient _apiClient = sl<ApiClient>();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLearningJourney();
   }
 
-  Widget _buildContactList(BuildContext context, List<Contact> contacts) {
-    if (contacts.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.contact_page, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('No contact information available'),
-          ],
-        ),
+  Future<void> _loadLearningJourney() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Get user ID
+      final userId = await UserSessionService.getUserId();
+      if (userId == null || userId.isEmpty) {
+        print('❌ [LEARNING JOURNEY] User ID is null or empty');
+        setState(() {
+          _attempts = [];
+          _isLoading = false;
+        });
+        return;
+      }
+
+      print('📊 [LEARNING JOURNEY] Fetching exam history for user: $userId');
+
+      // Remove leading slash if present
+      final endpoint = ApiEndpoints.examHistory.startsWith('/')
+          ? ApiEndpoints.examHistory.substring(1)
+          : ApiEndpoints.examHistory;
+
+      // Call API to fetch exam history
+      final response = await _apiClient.get(
+        endpoint,
+        queryParameters: {'user_id': userId},
       );
+
+      if (!response.isSuccess) {
+        print('❌ [LEARNING JOURNEY] API Error: ${response.error}');
+        setState(() {
+          _attempts = [];
+        });
+        return;
+      }
+
+      final data = response.data;
+      if (data == null) {
+        print('❌ [LEARNING JOURNEY] Response data is null');
+        setState(() {
+          _attempts = [];
+        });
+        return;
+      }
+
+      // Parse the response - could be {"records": [...]} or direct array
+      List<dynamic> records;
+      if (data is Map<String, dynamic>) {
+        records = data['records'] as List<dynamic>? ?? [];
+      } else if (data is List) {
+        records = data;
+      } else {
+        print('❌ [LEARNING JOURNEY] Unexpected response format: ${data.runtimeType}');
+        setState(() {
+          _attempts = [];
+        });
+        return;
+      }
+
+      print('📊 [LEARNING JOURNEY] Received ${records.length} exam history records');
+
+      // Convert to ExamAttempt objects
+      _attempts = records.map((record) {
+        return _parseExamAttempt(record as Map<String, dynamic>);
+      }).toList();
+
+      // Sort by completed_at (most recent first)
+      _attempts.sort((a, b) => b.completedAt.compareTo(a.completedAt));
+
+      // Calculate stats from attempts
+      _calculateStats();
+
+      print('📊 [LEARNING JOURNEY] Successfully loaded ${_attempts.length} attempts');
+    } catch (e) {
+      print('❌ [LEARNING JOURNEY] Error loading data: $e');
+      setState(() {
+        _attempts = [];
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  ExamAttempt _parseExamAttempt(Map<String, dynamic> json) {
+    // Parse id
+    int id = json['id'] is int ? json['id'] as int : int.tryParse(json['id'].toString()) ?? 0;
+    
+    // Parse paper_id
+    int paperId = json['paper_id'] is int 
+        ? json['paper_id'] as int 
+        : int.tryParse(json['paper_id'].toString()) ?? 0;
+    
+    // Parse score - could be string or double
+    double score = 0.0;
+    if (json['score'] != null) {
+      if (json['score'] is num) {
+        score = (json['score'] as num).toDouble();
+      } else if (json['score'] is String) {
+        score = double.tryParse(json['score']) ?? 0.0;
+      }
     }
     
-    return RefreshIndicator(
-      onRefresh: () async {
-        final user = await UserSessionService.getCurrentUser();
-        final teacherId = user?.teacherId ?? '';
-        context.read<ContactBloc>().add(LoadContacts(teacherId));
-      },
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: contacts.length,
-        itemBuilder: (context, index) {
-          final contact = contacts[index];
-          return _buildContactCard(context, contact);
-        },
-      ),
+    // Parse completed_at timestamp
+    DateTime completedAt = DateTime.now();
+    if (json['completed_at'] != null) {
+      try {
+        final dateStr = json['completed_at'].toString();
+        // Try parsing MySQL datetime format: "2026-01-16 21:09:46"
+        completedAt = DateFormat('yyyy-MM-dd HH:mm:ss').parse(dateStr);
+      } catch (e) {
+        print('⚠️ [LEARNING JOURNEY] Error parsing date: ${json['completed_at']}, error: $e');
+        completedAt = DateTime.now();
+      }
+    }
+    
+    // Parse duration (in seconds, convert to minutes)
+    int durationMinutes = 0;
+    if (json['duration'] != null) {
+      int durationSeconds = 0;
+      if (json['duration'] is int) {
+        durationSeconds = json['duration'] as int;
+      } else if (json['duration'] is String) {
+        durationSeconds = int.tryParse(json['duration']) ?? 0;
+      }
+      durationMinutes = durationSeconds ~/ 60; // Convert to minutes
+    }
+    
+    // Parse attempt_id
+    int attemptId = json['attempt_id'] is int 
+        ? json['attempt_id'] as int 
+        : int.tryParse(json['attempt_id'].toString()) ?? 0;
+
+    // Format date/time for display
+    final now = DateTime.now();
+    final difference = now.difference(completedAt);
+    String dateTimeStr;
+    if (difference.inDays == 0) {
+      // Today
+      dateTimeStr = 'Today • ${DateFormat('HH:mm').format(completedAt)}';
+    } else if (difference.inDays == 1) {
+      // Yesterday
+      dateTimeStr = 'Yesterday • ${DateFormat('HH:mm').format(completedAt)}';
+    } else if (difference.inDays < 7) {
+      // This week
+      dateTimeStr = '${difference.inDays} days ago • ${DateFormat('HH:mm').format(completedAt)}';
+    } else {
+      // Older
+      dateTimeStr = DateFormat('MMM dd • HH:mm').format(completedAt);
+    }
+
+    // Get paper name from API response
+    String subjectTopic = 'Paper #$paperId'; // Fallback
+    if (json['paper_name'] != null && json['paper_name'].toString().isNotEmpty) {
+      subjectTopic = json['paper_name'].toString();
+    } else if (json['paper_title'] != null && json['paper_title'].toString().isNotEmpty) {
+      subjectTopic = json['paper_title'].toString();
+    } else if (json['subject_name'] != null && json['chapter_name'] != null) {
+      subjectTopic = '${json['subject_name']}: ${json['chapter_name']}';
+    } else if (json['subject_name'] != null) {
+      subjectTopic = json['subject_name'].toString();
+    }
+
+    // Get image URL if available
+    String? imageUrl;
+    if (json['image_url'] != null && json['image_url'].toString().isNotEmpty) {
+      imageUrl = json['image_url'].toString();
+    }
+
+    return ExamAttempt(
+      id: id,
+      paperId: paperId,
+      scorePercentage: score, // API returns score as percentage or marks, adjust if needed
+      attemptNumber: attemptId + 1, // attempt_id is 0-indexed, display as 1-indexed
+      subjectTopic: subjectTopic,
+      dateTime: dateTimeStr,
+      completedAt: completedAt,
+      durationMinutes: durationMinutes,
+      imageUrl: imageUrl,
+      hasProgressBar: false,
     );
   }
 
-  Widget _buildContactCard(BuildContext context, Contact contact) {
-    print('Contact debug: id=${contact.id}, name=${contact.name}, youtubeLink=${contact.youtubeLink}, facebookLink=${contact.facebookLink}, whatsappLink=${contact.whatsappLink}');
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header with image and name
-            Row(
+  void _calculateStats() {
+    if (_attempts.isEmpty) {
+      _avgScore = 0.0;
+      _totalExams = 0;
+      _studyHours = 0;
+      return;
+    }
+
+    // Calculate average score
+    double totalScore = 0.0;
+    int totalDuration = 0;
+    for (var attempt in _attempts) {
+      totalScore += attempt.scorePercentage;
+      totalDuration += attempt.durationMinutes;
+    }
+    _avgScore = totalScore / _attempts.length;
+    _totalExams = _attempts.length;
+    _studyHours = totalDuration ~/ 60; // Convert minutes to hours
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F7F8), // background-light
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
               children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Colors.blue[100],
-                  backgroundImage: contact.image != null && contact.image!.isNotEmpty
-                      ? NetworkImage(contact.image!)
-                      : null,
-                  child: contact.image == null || contact.image!.isEmpty
-                      ? Icon(Icons.person, size: 30, color: Colors.blue[600])
-                      : null,
-                ),
-                const SizedBox(width: 16),
+                // Top App Bar (Fixed)
+                _buildTopAppBar(),
+                // Scrollable Content
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        contact.name,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _getRoleColor(contact.role),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          contact.role.toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        // Summary Section
+                        _buildSummarySection(),
+                        // History Section Header
+                        _buildHistoryHeader(),
+                        // History List
+                        _buildHistoryList(),
+                        // Bottom padding for last item
+                        const SizedBox(height: 16),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
-            
-            if (contact.description != null && contact.description!.isNotEmpty) ...[
-              const SizedBox(height: 16),
+      bottomNavigationBar: _buildBottomNavigationBar(),
+    );
+  }
+
+  Widget _buildTopAppBar() {
+    return Container(
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top,
+        left: 16,
+        right: 16,
+        bottom: 16,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.blue,
+      ),
+      child: Row(
+        children: [
+          // Back button
+          InkWell(
+            onTap: () => Navigator.of(context).pop(),
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(
+                Icons.arrow_back,
+                size: 24,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          // Title
+          Expanded(
+            child: Text(
+              'Learning Journey',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.015,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          // Spacer
+          const SizedBox(width: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummarySection() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          // Circular Progress Indicator
+          _buildCircularProgress(),
+          const SizedBox(height: 24),
+          // Summary Cards
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryCard(
+                  'Total Exams',
+                  '$_totalExams',
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildSummaryCard(
+                  'Study Hours',
+                  '${_studyHours}h',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCircularProgress() {
+    return Container(
+      width: 192,
+      height: 192,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        // Radial gradient for progress circle
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: CustomPaint(
+        painter: CircularProgressPainter(
+          progress: _avgScore / 100,
+          backgroundColor: const Color(0xFFE2E8F0),
+          progressColor: const Color(0xFF137FEC),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
               Text(
-                contact.description!,
+                '${_avgScore.toStringAsFixed(0)}%',
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111418),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Avg. Score',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
-                  fontStyle: FontStyle.italic,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade500,
                 ),
               ),
             ],
-            
-            const SizedBox(height: 16),
-            
-            // Contact Information
-            if (contact.email != null && contact.email!.isNotEmpty)
-              _buildContactInfo(Icons.email, 'Email', contact.email!, () => _launchEmail(contact.email!)),
-            if (contact.phone1 != null && contact.phone1!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: [
-                    Icon(Icons.phone, size: 24, color: Colors.green[700]),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => _launchPhone(contact.phone1!),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.green[50],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            contact.phone1!,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            if (contact.phone2 != null && contact.phone2!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: [
-                    Icon(Icons.phone, size: 24, color: Colors.blue[700]),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => _launchPhone(contact.phone2!),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[50],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            contact.phone2!,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            if (contact.address != null && contact.address!.isNotEmpty)
-              _buildContactInfo(Icons.location_on, 'Address', contact.address!, null),
-            
-            if (contact.website != null && contact.website!.isNotEmpty)
-              _buildContactInfo(Icons.language, 'Website', contact.website!, () => _launchUrl(contact.website!)),
-            
-            const SizedBox(height: 16),
-            
-            // Social Media Links
-            if (_hasSocialMedia(contact) || contact.youtubeLink != null || contact.facebookLink != null || contact.whatsappLink != null) ...[
-              const Text(
-                'Follow Us',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  if (contact.facebook != null && contact.facebook!.isNotEmpty)
-                    _buildSocialButton(Icons.facebook, Colors.blue[600]!, () => _launchUrl(contact.facebook!)),
-                  if (contact.instagram != null && contact.instagram!.isNotEmpty)
-                    _buildSocialButton(Icons.camera_alt, Colors.purple[400]!, () => _launchUrl(contact.instagram!)),
-                  if (contact.twitter != null && contact.twitter!.isNotEmpty)
-                    _buildSocialButton(Icons.flutter_dash, Colors.lightBlue[400]!, () => _launchUrl(contact.twitter!)),
-                  if (contact.linkedin != null && contact.linkedin!.isNotEmpty)
-                    _buildSocialButton(Icons.work, Colors.blue[700]!, () => _launchUrl(contact.linkedin!)),
-                  if (contact.youtubeLink != null && contact.youtubeLink!.isNotEmpty)
-                    _buildSocialButton(
-                      FontAwesomeIcons.youtube,
-                      Colors.red,
-                      () => _launchUrl(contact.youtubeLink!),
-                    ),
-                  if (contact.facebookLink != null && contact.facebookLink!.isNotEmpty)
-                    _buildSocialButton(
-                      FontAwesomeIcons.facebook,
-                      Colors.blue,
-                      () => _launchUrl(contact.facebookLink!),
-                    ),
-                  if (contact.whatsappLink != null && contact.whatsappLink!.isNotEmpty)
-                    _buildSocialButton(
-                      FontAwesomeIcons.whatsapp,
-                      Colors.green,
-                      () => _launchUrl(contact.whatsappLink!),
-                    ),
-                ],
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildContactInfo(IconData icon, String label, String value, VoidCallback? onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
+  Widget _buildSummaryCard(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.shade100,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: Colors.grey[600]),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[500],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: onTap,
-                  child: Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: onTap != null ? Colors.blue[600] : Colors.black87,
-                      decoration: onTap != null ? TextDecoration.underline : null,
-                    ),
-                  ),
-                ),
-              ],
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade500,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              height: 1.2,
+              color: Color(0xFF111418),
             ),
           ),
         ],
@@ -340,77 +443,339 @@ class DisplayContactDetailsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSocialButton(IconData icon, Color color, VoidCallback onTap) {
-    return Container(
-      margin: const EdgeInsets.only(right: 12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(25),
-        child: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(25),
+  Widget _buildHistoryHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            'History',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.015,
+              color: Color(0xFF111418),
+            ),
           ),
-          child: Icon(icon, color: Colors.white, size: 24),
+          TextButton(
+            onPressed: () {
+              // TODO: Implement filter functionality
+            },
+            child: const Text(
+              'Filter',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF137FEC),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryList() {
+    if (_attempts.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.query_stats,
+              size: 64,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No exam attempts yet',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: _attempts.length,
+      itemBuilder: (context, index) {
+        return _buildAttemptCard(_attempts[index]);
+      },
+    );
+  }
+
+  Widget _buildAttemptCard(ExamAttempt attempt) {
+    // Determine score color - green for high scores
+    Color scoreColor;
+    if (attempt.scorePercentage >= 80) {
+      scoreColor = Colors.green;
+    } else if (attempt.scorePercentage >= 60) {
+      scoreColor = Colors.orange;
+    } else {
+      scoreColor = Colors.red;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.shade50,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Left content - Text information
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Score and Attempt badge in one row
+                  Row(
+                    children: [
+                      // Large score percentage
+                      Text(
+                        '${attempt.scorePercentage.toStringAsFixed(0)}%',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: scoreColor,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Attempt badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF137FEC).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'ATTEMPT #${attempt.attemptNumber}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF137FEC),
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Subject and topic - can wrap to two lines
+                  Text(
+                    attempt.subjectTopic,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      height: 1.3,
+                      color: Color(0xFF111418),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  // Date and time
+                  Text(
+                    attempt.dateTime,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade500,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // View Details button
+                  _buildViewDetailsButton(),
+                ],
+              ),
+            ),
+            // Right side - Image thumbnail
+            if (attempt.imageUrl != null) ...[
+              const SizedBox(width: 16),
+              Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  image: DecorationImage(
+                    image: NetworkImage(attempt.imageUrl!),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
   }
 
-  Color _getRoleColor(String role) {
-    switch (role.toLowerCase()) {
-      case 'support':
-        return Colors.orange;
-      case 'sales':
-        return Colors.green;
-      case 'technical':
-        return Colors.purple;
-      case 'admin':
-        return Colors.red;
-      case 'teacher':
-        return Colors.blue;
-      case 'manager':
-        return Colors.indigo;
-      case 'coordinator':
-        return Colors.teal;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  bool _hasSocialMedia(Contact contact) {
-    return (contact.facebook != null && contact.facebook!.isNotEmpty) ||
-           (contact.instagram != null && contact.instagram!.isNotEmpty) ||
-           (contact.twitter != null && contact.twitter!.isNotEmpty) ||
-           (contact.linkedin != null && contact.linkedin!.isNotEmpty);
-  }
-
-  Future<void> _launchEmail(String email) async {
-    final Uri emailUri = Uri(
-      scheme: 'mailto',
-      path: email,
+  Widget _buildViewDetailsButton() {
+    return InkWell(
+      onTap: () {
+        // TODO: Navigate to exam details page
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Text(
+          'View Details',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF111418),
+          ),
+        ),
+      ),
     );
-    if (await canLaunchUrl(emailUri)) {
-      await launchUrl(emailUri);
-    }
   }
 
-  Future<void> _launchPhone(String phone) async {
-    final Uri phoneUri = Uri(
-      scheme: 'tel',
-      path: phone,
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        border: Border(
+          top: BorderSide(
+            color: Colors.grey.shade100,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildBottomNavItem(Icons.home, 'Home', false),
+          _buildBottomNavItem(Icons.menu_book, 'Exams', false),
+          _buildBottomNavItem(Icons.query_stats, 'Progress', true),
+          _buildBottomNavItem(Icons.person, 'Profile', false),
+        ],
+      ),
     );
-    if (await canLaunchUrl(phoneUri)) {
-      await launchUrl(phoneUri);
-    }
   }
 
-  Future<void> _launchUrl(String url) async {
-    final Uri uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+  Widget _buildBottomNavItem(IconData icon, String label, bool isSelected) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 26,
+          color: isSelected ? const Color(0xFF137FEC) : Colors.grey.shade400,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? const Color(0xFF137FEC) : Colors.grey.shade400,
+          ),
+        ),
+      ],
+    );
   }
-} 
+}
+
+// Custom painter for circular progress
+class CircularProgressPainter extends CustomPainter {
+  final double progress;
+  final Color backgroundColor;
+  final Color progressColor;
+
+  CircularProgressPainter({
+    required this.progress,
+    required this.backgroundColor,
+    required this.progressColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    // Draw background circle
+    final backgroundPaint = Paint()
+      ..color = backgroundColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 12
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(center, radius - 6, backgroundPaint);
+
+    // Draw progress arc
+    final progressPaint = Paint()
+      ..color = progressColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 12
+      ..strokeCap = StrokeCap.round;
+
+    final startAngle = -90 * (3.14159 / 180); // Start from top
+    final sweepAngle = 360 * progress * (3.14159 / 180);
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius - 6),
+      startAngle,
+      sweepAngle,
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => true;
+}
+
+// Exam Attempt model
+class ExamAttempt {
+  final int id;
+  final int paperId;
+  final double scorePercentage;
+  final int attemptNumber;
+  final String subjectTopic;
+  final String dateTime;
+  final DateTime completedAt;
+  final int durationMinutes;
+  final String? imageUrl;
+  final bool hasProgressBar;
+
+  ExamAttempt({
+    required this.id,
+    required this.paperId,
+    required this.scorePercentage,
+    required this.attemptNumber,
+    required this.subjectTopic,
+    required this.dateTime,
+    required this.completedAt,
+    required this.durationMinutes,
+    this.imageUrl,
+    this.hasProgressBar = false,
+  });
+}

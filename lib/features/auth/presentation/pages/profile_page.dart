@@ -295,6 +295,41 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  bool _refreshing = false;
+
+  Future<void> _refreshMasterData() async {
+    final user = context.read<AuthBloc>().state.user;
+    if (user?.teacherId == null || user!.teacherId!.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot refresh: No teacher ID found'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _refreshing = true);
+
+    // Trigger refresh master data event
+    context.read<AuthBloc>().add(const RefreshMasterData());
+
+    // Wait a bit for the refresh to complete
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (!mounted) return;
+    setState(() => _refreshing = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('App data refreshed successfully'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final current = context.read<AuthBloc>().state.user;
@@ -410,6 +445,29 @@ class _ProfilePageState extends State<ProfilePage> {
                       child: OutlinedButton(
                         onPressed: _saving ? null : _requestPasswordReset,
                         child: const Text('Request Password Reset'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: ElevatedButton.icon(
+                        onPressed: (_saving || _refreshing) ? null : _refreshMasterData,
+                        icon: _refreshing
+                            ? const SizedBox(
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Icon(Icons.refresh, size: 20),
+                        label: Text(_refreshing ? 'Refreshing...' : 'Refresh the app'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
