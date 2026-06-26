@@ -9,7 +9,7 @@ abstract class OldVideosEvent extends Equatable {
 
 class FetchOldVideos extends OldVideosEvent {
   final String userId;
-  final String teacherId;
+  final String schoolId;
   final String? grade;
   final String? subject;
   final int? month;
@@ -17,7 +17,7 @@ class FetchOldVideos extends OldVideosEvent {
 
   const FetchOldVideos({
     required this.userId,
-    required this.teacherId,
+    required this.schoolId,
     this.grade,
     this.subject,
     this.month,
@@ -25,5 +25,5 @@ class FetchOldVideos extends OldVideosEvent {
   });
 
   @override
-  List<Object> get props => [userId, teacherId, grade ?? '', subject ?? '', month ?? 0, year ?? 0];
+  List<Object> get props => [userId, schoolId, grade ?? '', subject ?? '', month ?? 0, year ?? 0];
 } 

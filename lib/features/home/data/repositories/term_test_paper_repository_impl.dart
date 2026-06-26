@@ -16,13 +16,13 @@ class TermTestPaperRepositoryImpl implements TermTestPaperRepository {
 
   @override
   Future<Either<Failure, List<TermTestPaper>>> getTermTestPapers({
-    required String teacherId,
+    required String schoolId,
     String? grade,
     String? subject,
     int? term,
   }) async {
     print('📄 [REPOSITORY] TermTestPaperRepository.getTermTestPapers called with:');
-    print('📄   - teacherId: $teacherId');
+      print('📄   - schoolId: $schoolId');
     print('📄   - grade: $grade');
     print('📄   - subject: $subject');
     print('📄   - term: $term');
@@ -31,7 +31,7 @@ class TermTestPaperRepositoryImpl implements TermTestPaperRepository {
       try {
         print('📄 [REPOSITORY] Network connected, calling remote data source...');
         final paperModels = await remoteDataSource.getTermTestPapers(
-          teacherId: teacherId,
+          schoolId: schoolId,
           grade: grade,
           subject: subject,
           term: term,

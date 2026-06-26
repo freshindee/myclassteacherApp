@@ -8,16 +8,16 @@ abstract class NotesAssignmentsEvent extends Equatable {
 }
 
 class LoadNotes extends NotesAssignmentsEvent {
-  final String teacherId;
-  const LoadNotes(this.teacherId);
+  final String schoolId;
+  const LoadNotes(this.schoolId);
   @override
-  List<Object> get props => [teacherId];
+  List<Object> get props => [schoolId];
 }
 
 class LoadNotesByGrade extends NotesAssignmentsEvent {
-  final String teacherId;
+  final String schoolId;
   final String grade;
-  const LoadNotesByGrade(this.teacherId, this.grade);
+  const LoadNotesByGrade(this.schoolId, this.grade);
   @override
-  List<Object> get props => [teacherId, grade];
+  List<Object> get props => [schoolId, grade];
 } 

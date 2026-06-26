@@ -7,9 +7,8 @@ import '../models/video_model.dart';
 import '../../domain/entities/video.dart';
 import '../../domain/repositories/video_repository.dart';
 import '../../domain/usecases/add_video.dart';
-import 'dart:io';
-import 'dart:typed_data';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'video_repository_impl_stub.dart'
+    if (dart.library.io) 'video_repository_impl_io.dart' as _upload;
 
 class VideoRepositoryImpl implements VideoRepository {
   final VideoRemoteDataSource remoteDataSource;
@@ -23,7 +22,7 @@ class VideoRepositoryImpl implements VideoRepository {
   @override
   Future<Either<Failure, List<Video>>> getVideos({
     String? userId,
-    String? teacherId,
+    String? schoolId,
     String? grade,
     String? subject,
     int? month,
@@ -32,7 +31,7 @@ class VideoRepositoryImpl implements VideoRepository {
   }) async {
     print('🎬 [REPOSITORY] VideoRepository.getVideos called with:');
     print('🎬   - userId: $userId');
-    print('🎬   - teacherId: $teacherId');
+    print('🎬   - schoolId: $schoolId');
     print('🎬   - grade: $grade');
     print('🎬   - subject: $subject');
     print('🎬   - month: $month');
@@ -44,7 +43,7 @@ class VideoRepositoryImpl implements VideoRepository {
         print('🎬 [REPOSITORY] Network connected, calling remote data source...');
         final videoModels = await remoteDataSource.getVideos(
           userId: userId,
-          teacherId: teacherId,
+          schoolId: schoolId,
           grade: grade,
           subject: subject,
           month: month,
@@ -111,16 +110,7 @@ class VideoRepositoryImpl implements VideoRepository {
 
   Future<String?> uploadFile(String filePath) async {
     try {
-      final file = File(filePath);
-      if (!await file.exists()) return null;
-      final fileBytes = await file.readAsBytes();
-      final fileName = file.uri.pathSegments.last;
-      final path = 'videos/  ${DateTime.now().millisecondsSinceEpoch}_$fileName';
-      final ref = FirebaseStorage.instance.ref().child(path);
-      final uploadTask = ref.putData(fileBytes);
-      final snapshot = await uploadTask.whenComplete(() {});
-      final url = await snapshot.ref.getDownloadURL();
-      return url;
+      return _upload.uploadVideoFileFromPath(filePath);
     } catch (e) {
       developer.log('❌ Failed to upload file: $e', name: 'VideoRepository');
       return null;
@@ -128,14 +118,14 @@ class VideoRepositoryImpl implements VideoRepository {
   }
 
   @override
-  Future<Either<Failure, List<Video>>> getFreeVideos(String teacherId) async {
-    print('🎬 [REPOSITORY] VideoRepository.getFreeVideos called with teacherId: $teacherId');
+  Future<Either<Failure, List<Video>>> getFreeVideos(String schoolId) async {
+    print('🎬 [REPOSITORY] VideoRepository.getFreeVideos called with schoolId: $schoolId');
     
     if (await networkInfo.isConnected) {
       try {
         print('🎬 [REPOSITORY] Network connected, calling remote data source...');
         developer.log('📱 Fetching free videos from repository...', name: 'VideoRepository');
-        final videoModels = await remoteDataSource.getFreeVideos(teacherId);
+        final videoModels = await remoteDataSource.getFreeVideos(schoolId);
         developer.log('📱 Converting ${videoModels.length} free video models to entities', name: 'VideoRepository');
         
         final videos = videoModels.map((model) => Video(
@@ -167,14 +157,14 @@ class VideoRepositoryImpl implements VideoRepository {
   }
 
   @override
-  Future<Either<Failure, List<Video>>> getFreeVideosByGrade(String teacherId, String grade) async {
-    print('🎬 [REPOSITORY] VideoRepository.getFreeVideosByGrade called with teacherId: $teacherId, grade: $grade');
+  Future<Either<Failure, List<Video>>> getFreeVideosByGrade(String schoolId, String grade) async {
+    print('🎬 [REPOSITORY] VideoRepository.getFreeVideosByGrade called with schoolId: $schoolId, grade: $grade');
     
     if (await networkInfo.isConnected) {
       try {
         print('🎬 [REPOSITORY] Network connected, calling remote data source...');
         developer.log('📱 Fetching free videos by grade from repository...', name: 'VideoRepository');
-        final videoModels = await remoteDataSource.getFreeVideosByGrade(teacherId, grade);
+        final videoModels = await remoteDataSource.getFreeVideosByGrade(schoolId, grade);
         developer.log('📱 Converting ${videoModels.length} free video models to entities', name: 'VideoRepository');
         
         final videos = videoModels.map((model) => Video(

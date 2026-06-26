@@ -15,10 +15,10 @@ class GradeRepositoryImpl implements GradeRepository {
   });
 
   @override
-  Future<Either<Failure, List<Grade>>> getGrades(String teacherId) async {
+  Future<Either<Failure, List<Grade>>> getGrades(String schoolId) async {
     if (await networkInfo.isConnected) {
       try {
-        final gradeModels = await remoteDataSource.getGrades(teacherId);
+        final gradeModels = await remoteDataSource.getGrades(schoolId);
         final grades = gradeModels.map((model) => model.toEntity()).toList();
         return Right(grades);
       } catch (e) {

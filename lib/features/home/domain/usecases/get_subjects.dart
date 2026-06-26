@@ -10,8 +10,8 @@ class GetSubjects implements UseCase<List<Subject>, String> {
   GetSubjects(this.repository);
 
   @override
-  Future<Either<Failure, List<Subject>>> call(String teacherId) async {
-    return await repository.getSubjects(teacherId);
+  Future<Either<Failure, List<Subject>>> call(String schoolId) async {
+    return await repository.getSubjects(schoolId);
   }
 }
 

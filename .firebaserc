@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "my-class-teacher-c833a"
+  },
+  "targets": {
+    "my-class-teacher-c833a": {
+      "hosting": {
+        "studentweb": ["myclassteacher-studentweb"]
+      }
+    }
+  }
+}

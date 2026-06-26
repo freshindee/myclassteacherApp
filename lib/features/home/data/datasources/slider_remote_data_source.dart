@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/slider_image_model.dart';
 
 abstract class SliderRemoteDataSource {
-  Future<List<SliderImageModel>> getSliderImages(String teacherId);
+  Future<List<SliderImageModel>> getSliderImages(String schoolId);
 }
 
 class SliderRemoteDataSourceImpl implements SliderRemoteDataSource {
@@ -11,16 +11,17 @@ class SliderRemoteDataSourceImpl implements SliderRemoteDataSource {
   SliderRemoteDataSourceImpl({required this.firestore});
 
   @override
-  Future<List<SliderImageModel>> getSliderImages(String teacherId) async {
+  Future<List<SliderImageModel>> getSliderImages(String schoolId) async {
     try {
-      print('🖼️ [API REQUEST] SliderDataSource.getSliderImages called with teacherId: $teacherId');
+      print('🖼️ [API REQUEST] SliderDataSource.getSliderImages called with schoolId: $schoolId');
       
       final querySnapshot = await firestore
+          .collection('schools')
+          .doc(schoolId)
           .collection('slider')
-          .where('teacherId', isEqualTo: teacherId)
           .get();
       
-      print('🖼️ [API RESPONSE] Found ${querySnapshot.docs.length} slider documents for teacherId: $teacherId');
+      print('🖼️ [API RESPONSE] Found ${querySnapshot.docs.length} slider documents for schoolId: $schoolId');
       
       final List<SliderImageModel> sliderImages = [];
       
@@ -28,7 +29,6 @@ class SliderRemoteDataSourceImpl implements SliderRemoteDataSource {
         final data = doc.data();
         print('🖼️ [API RESPONSE] Slider document ${doc.id}: $data');
         
-        // Extract all image fields from the document
         final imageFields = ['image1', 'image2', 'image3', 'image4'];
         int imageIndex = 1;
         
@@ -36,7 +36,7 @@ class SliderRemoteDataSourceImpl implements SliderRemoteDataSource {
           if (data[field] != null && data[field].toString().isNotEmpty) {
             final sliderImage = SliderImageModel.fromJson({
               'id': '${doc.id}_$imageIndex',
-              'teacherId': data['teacherId'] ?? teacherId,
+              'teacherId': schoolId,
               field: data[field],
             });
             sliderImages.add(sliderImage);

@@ -4,13 +4,13 @@ import '../../../../core/usecases.dart';
 import '../entities/exam_chapter.dart';
 import '../repositories/exam_chapter_repository.dart';
 
-class GetExamChapters implements UseCase<List<ExamChapter>, int> {
+class GetExamChapters implements UseCase<List<ExamChapter>, String> {
   final ExamChapterRepository repository;
 
   GetExamChapters(this.repository);
 
   @override
-  Future<Either<Failure, List<ExamChapter>>> call(int subjectId) async {
+  Future<Either<Failure, List<ExamChapter>>> call(String subjectId) async {
     return await repository.getExamChapters(subjectId);
   }
 }

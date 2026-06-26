@@ -10,7 +10,7 @@ class GetPayAccountDetails implements UseCase<PayAccountDetails?, String> {
   GetPayAccountDetails(this.repository);
 
   @override
-  Future<Either<Failure, PayAccountDetails?>> call(String teacherId) async {
-    return await repository.getPayAccountDetails(teacherId);
+  Future<Either<Failure, PayAccountDetails?>> call(String schoolId) async {
+    return await repository.getPayAccountDetails(schoolId);
   }
 }

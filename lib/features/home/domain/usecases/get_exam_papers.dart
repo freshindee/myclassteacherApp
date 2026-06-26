@@ -8,11 +8,14 @@ class GetExamPapersParams {
   final String grade;
   final int subjectId;
   final int? chapterId;
+  /// When set, sent as subject_id to API (paper table uses string subject_id e.g. class_subject id).
+  final String? subjectIdStr;
 
   GetExamPapersParams({
     required this.grade,
     required this.subjectId,
     this.chapterId,
+    this.subjectIdStr,
   });
 }
 
@@ -27,6 +30,7 @@ class GetExamPapers implements UseCase<List<ExamPaper>, GetExamPapersParams> {
       grade: params.grade,
       subjectId: params.subjectId,
       chapterId: params.chapterId,
+      subjectIdStr: params.subjectIdStr,
     );
   }
 }

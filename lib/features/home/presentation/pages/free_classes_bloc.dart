@@ -13,7 +13,7 @@ class FreeClassesBloc extends Bloc<FreeClassesEvent, FreeClassesState> {
   ) async {
     emit(FreeClassesLoading());
     developer.log('🔄 Loading advertisements...', name: 'FreeClassesBloc');
-    final result = await getAdvertisements(event.teacherId);
+    final result = await getAdvertisements(event.schoolId);
     result.fold(
       (failure) {
         final errorMessage = failure is ServerFailure

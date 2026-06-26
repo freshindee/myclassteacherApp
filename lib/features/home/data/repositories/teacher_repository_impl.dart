@@ -15,13 +15,13 @@ class TeacherRepositoryImpl implements TeacherRepository {
   });
 
   @override
-  Future<Either<Failure, List<Teacher>>> getTeachers(String teacherId) async {
-    print('👨‍🏫 [REPOSITORY] TeacherRepository.getTeachers called with teacherId: $teacherId');
+  Future<Either<Failure, List<Teacher>>> getTeachers(String schoolId) async {
+    print('👨‍🏫 [REPOSITORY] TeacherRepository.getTeachers called with schoolId: $schoolId');
     
     if (await networkInfo.isConnected) {
       try {
         print('👨‍🏫 [REPOSITORY] Network connected, calling remote data source...');
-        final teacherModels = await remoteDataSource.getTeachers(teacherId);
+        final teacherModels = await remoteDataSource.getTeachers(schoolId);
         print('👨‍🏫 [REPOSITORY] Successfully fetched ${teacherModels.length} teacher models from remote data source');
         
         final teachers = teacherModels.map((model) => Teacher(
@@ -31,6 +31,9 @@ class TeacherRepositoryImpl implements TeacherRepository {
           grade: model.grade,
           phone: model.phone,
           image: model.image,
+          displayId: model.displayId,
+          qualification: model.qualification,
+          specialization: model.specialization,
         )).toList();
         
         print('👨‍🏫 [REPOSITORY] Successfully converted ${teachers.length} teacher models to entities');

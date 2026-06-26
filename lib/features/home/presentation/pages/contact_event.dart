@@ -8,8 +8,8 @@ abstract class ContactEvent extends Equatable {
 }
 
 class LoadContacts extends ContactEvent {
-  final String teacherId;
-  const LoadContacts(this.teacherId);
+  final String schoolId;
+  const LoadContacts(this.schoolId);
   @override
-  List<Object> get props => [teacherId];
+  List<Object> get props => [schoolId];
 } 

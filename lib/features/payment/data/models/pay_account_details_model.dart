@@ -9,9 +9,9 @@ class PayAccountDetailsModel extends PayAccountDetails {
 
   factory PayAccountDetailsModel.fromJson(Map<String, dynamic> json) {
     return PayAccountDetailsModel(
-      id: json['id'] as String,
-      teacherId: json['teacherId'] as String,
-      slider1Url: json['slider1_url'] as String,
+      id: json['id']?.toString() ?? '',
+      teacherId: json['teacherId']?.toString() ?? '',
+      slider1Url: json['slider1_url']?.toString() ?? '',
     );
   }
 

@@ -10,13 +10,13 @@ class GetTimetableByGrade implements UseCase<List<Timetable>, GetTimetableByGrad
   
   @override
   Future<Either<Failure, List<Timetable>>> call(GetTimetableByGradeParams params) async {
-    return await repository.getTimetableByGrade(params.teacherId, params.grade);
+    return await repository.getTimetableByGrade(params.schoolId, params.grade);
   }
 }
 
 class GetTimetableByGradeParams {
-  final String teacherId;
+  final String schoolId;
   final String grade;
   
-  GetTimetableByGradeParams({required this.teacherId, required this.grade});
+  GetTimetableByGradeParams({required this.schoolId, required this.grade});
 } 

@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../injection_container.dart';
+import '../../../../core/widgets/grade_selector.dart';
+import '../../../../core/services/school_cache_service.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../payment/domain/usecases/get_user_payments.dart';
 import '../../../payment/presentation/pages/payment_page.dart';
 import '../../../payment/presentation/bloc/payment_bloc.dart';
-import '../../domain/usecases/get_subjects.dart';
-import '../../domain/entities/subject.dart';
 import 'view_old_videos_page.dart';
-import 'old_videos_bloc.dart';
-import '../../../../core/services/master_data_service.dart';
 
 class PastMonthsRecordingsPage extends StatefulWidget {
-  const PastMonthsRecordingsPage({super.key});
+  const PastMonthsRecordingsPage({super.key, this.embedInHomeShell = false});
+
+  final bool embedInHomeShell;
 
   @override
   State<PastMonthsRecordingsPage> createState() => _PastMonthsRecordingsPageState();
@@ -20,121 +20,35 @@ class PastMonthsRecordingsPage extends StatefulWidget {
 
 class _PastMonthsRecordingsPageState extends State<PastMonthsRecordingsPage> {
   List<int> _paidMonths = [];
-  List<Subject> _subjects = [];
-  List<String> _grades = [];
   String? _selectedSubject;
   String? _selectedGrade;
+  String? _selectedClassName;
+  Map<String, dynamic>? _selectedClassDoc;
+  List<Map<String, dynamic>> _classesForGrade = [];
+  bool _loadingClasses = false;
+  List<Map<String, dynamic>> _classSubjectsForSelectedClass = [];
+  bool _loadingClassSubjects = false;
+  Map<String, String> _subjectIdToName = {};
   bool _isLoading = true;
-  bool _isLoadingSubjects = true;
-  bool _isLoadingGrades = true;
   String? _error;
-  String? _subjectsError;
-  String? _gradesError;
 
   @override
   void initState() {
     super.initState();
-    _loadGrades();
-    _loadSubjects();
     _loadPayments();
   }
 
-  Future<void> _loadGrades() async {
-    setState(() {
-      _isLoadingGrades = true;
-      _gradesError = null;
-    });
-    
-    try {
-      // First try to get from teacher master data
-      final masterData = await MasterDataService.getTeacherMasterData();
-      if (masterData != null && masterData.grades.isNotEmpty) {
-        setState(() {
-          _grades = masterData.grades;
-          _isLoadingGrades = false;
-        });
-        print('🎥 [DEBUG] PastMonthsRecordingsPage - Loaded ${_grades.length} grades from master data');
-        return;
-      }
-      
-      // Fallback to Grade entities from master data
-      final gradeEntities = await MasterDataService.getGrades();
-      if (gradeEntities.isNotEmpty) {
-        setState(() {
-          _grades = gradeEntities.map((g) => g.name).toList();
-          _isLoadingGrades = false;
-        });
-        print('🎥 [DEBUG] PastMonthsRecordingsPage - Loaded ${_grades.length} grades from Grade entities');
-        return;
-      }
-      
-      // If no grades found, set empty list
-      setState(() {
-        _grades = [];
-        _isLoadingGrades = false;
-      });
-      print('⚠️ [DEBUG] PastMonthsRecordingsPage - No grades found in master data');
-    } catch (e) {
-      print('⚠️ [DEBUG] PastMonthsRecordingsPage - Error loading grades: $e');
-      setState(() {
-        _gradesError = e.toString();
-        _grades = [];
-        _isLoadingGrades = false;
-      });
-    }
+  String _subjectDisplayName(Map<String, dynamic> classSubjectItem) {
+    final subjectId = classSubjectItem['subject_id']?.toString() ??
+        classSubjectItem['subjectId']?.toString() ??
+        classSubjectItem['subject']?.toString();
+    if (subjectId == null || subjectId.isEmpty) return '—';
+    return _subjectIdToName[subjectId] ?? '—';
   }
 
-  Future<void> _loadSubjects() async {
-    setState(() {
-      _isLoadingSubjects = true;
-      _subjectsError = null;
-    });
-
-    try {
-      // First try to get from teacher master data
-      final masterData = await MasterDataService.getTeacherMasterData();
-      if (masterData != null && masterData.subjects.isNotEmpty) {
-        // Convert subject strings to Subject entities
-        final subjectEntities = masterData.subjects.map((subjectName) {
-          return Subject(
-            id: subjectName,
-            subject: subjectName,
-            teacherId: masterData.teacherId,
-          );
-        }).toList();
-        setState(() {
-          _subjects = subjectEntities;
-          _isLoadingSubjects = false;
-        });
-        print('🎥 [DEBUG] PastMonthsRecordingsPage - Loaded ${_subjects.length} subjects from master data');
-        return;
-      }
-      
-      // Fallback to Subject entities from master data
-      final subjectEntities = await MasterDataService.getSubjects();
-      if (subjectEntities.isNotEmpty) {
-        setState(() {
-          _subjects = subjectEntities;
-          _isLoadingSubjects = false;
-        });
-        print('🎥 [DEBUG] PastMonthsRecordingsPage - Loaded ${_subjects.length} subjects from Subject entities');
-        return;
-      }
-      
-      // If no subjects found, set empty list
-      setState(() {
-        _subjects = [];
-        _isLoadingSubjects = false;
-      });
-      print('⚠️ [DEBUG] PastMonthsRecordingsPage - No subjects found in master data');
-    } catch (e) {
-      print('⚠️ [DEBUG] PastMonthsRecordingsPage - Error loading subjects: $e');
-      setState(() {
-        _subjectsError = e.toString();
-        _subjects = [];
-        _isLoadingSubjects = false;
-      });
-    }
+  static bool _isPaidStatus(String status) {
+    final s = status.toLowerCase();
+    return s == 'paid' || s == 'approved' || s == 'completed';
   }
 
   Future<void> _loadPayments() async {
@@ -156,11 +70,9 @@ class _PastMonthsRecordingsPageState extends State<PastMonthsRecordingsPage> {
       }
 
       final getUserPayments = sl<GetUserPayments>();
-      final teacherId = user.teacherId ?? '';
-      final params = GetUserPaymentsParams(
-        userId: user.userId,
-        teacherId: teacherId.isNotEmpty ? teacherId : null,
-      );
+      final schoolId = user.teacherId ?? '';
+      // Pass schoolId so we query schools/{schoolId}/payments by student_id (all payment records for this student)
+      final params = GetUserPaymentsParams(userId: user.userId, schoolId: schoolId);
       final result = await getUserPayments(params);
 
       result.fold(
@@ -172,27 +84,21 @@ class _PastMonthsRecordingsPageState extends State<PastMonthsRecordingsPage> {
         },
         (payments) {
           final currentYear = DateTime.now().year;
-          // Filter payments for current year with completed/approved status
-          // Also filter by selected subject and grade if they are selected
-          // Extract grade number from selected grade (e.g., "Grade 1" -> "1")
-          final selectedGradeNumber = _selectedGrade != null
+          final selectedGradeNumber = _selectedGrade != null && _selectedGrade!.isNotEmpty
               ? _selectedGrade!.replaceAll(RegExp(r'[^0-9]'), '')
               : null;
-          
+
+          // Consider paid/approved/completed; filter by current year and selected subject/grade
           final filteredPayments = payments.where((p) {
             final matchesYear = p.year == currentYear;
-            final matchesStatus = p.status == 'approved';
+            final matchesStatus = _isPaidStatus(p.status);
             final matchesSubject = _selectedSubject == null || p.subject == _selectedSubject;
-            // Extract grade number from payment grade for comparison
             final paymentGradeNumber = p.grade.replaceAll(RegExp(r'[^0-9]'), '');
             final matchesGrade = selectedGradeNumber == null || paymentGradeNumber == selectedGradeNumber;
             return matchesYear && matchesStatus && matchesSubject && matchesGrade;
           }).toList();
-          
-          final paidMonths = filteredPayments
-              .map((p) => p.month)
-              .toSet()
-              .toList();
+
+          final paidMonths = filteredPayments.map((p) => p.month).toSet().toList();
 
           setState(() {
             _paidMonths = paidMonths;
@@ -237,6 +143,18 @@ class _PastMonthsRecordingsPageState extends State<PastMonthsRecordingsPage> {
     return _paidMonths.contains(month);
   }
 
+  String? _getSelectedClassSubjectId() {
+    if (_selectedSubject == null || _selectedSubject!.isEmpty) return null;
+    for (final item in _classSubjectsForSelectedClass) {
+      if (_subjectDisplayName(item) == _selectedSubject) {
+        final id = item['id']?.toString();
+        if (id != null && id.isNotEmpty) return id;
+        return null;
+      }
+    }
+    return null;
+  }
+
   void _handleMonthTap(int month, BuildContext context) {
     final authState = context.read<AuthBloc>().state;
     final user = authState.user;
@@ -244,38 +162,35 @@ class _PastMonthsRecordingsPageState extends State<PastMonthsRecordingsPage> {
     if (user == null || _selectedGrade == null || _selectedSubject == null) return;
 
     if (_isMonthPaid(month)) {
-      // Navigate to ViewOldVideoPage with grade, month, and subject
-      final now = DateTime.now();
-      final currentYear = now.year;
-      // Extract grade number from "Grade X" format if needed
-      String? gradeValue = _selectedGrade;
-      if (gradeValue != null && gradeValue.contains('Grade')) {
-        gradeValue = gradeValue.replaceAll(RegExp(r'[^0-9]'), '');
-      }
-      
+      final gradeValue = _selectedGrade!.replaceAll(RegExp(r'[^0-9]'), '').isNotEmpty
+          ? _selectedGrade!.replaceAll(RegExp(r'[^0-9]'), '')
+          : _selectedGrade!;
+      final classSubjectId = _getSelectedClassSubjectId();
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => BlocProvider(
-            create: (_) => sl<OldVideosBloc>(),
-            child: ViewOldVideoPage(
-              grade: gradeValue,
-              month: month,
-              subject: _selectedSubject,
-            ),
+          builder: (context) => ViewOldVideoPage(
+            grade: gradeValue,
+            month: month,
+            subject: _selectedSubject,
+            classSubjectId: classSubjectId,
           ),
         ),
       );
     } else {
       // Navigate to Payment Page
       final userId = user.userId;
-      final teacherId = user.teacherId ?? '';
+      final schoolId = user.teacherId ?? '';
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => BlocProvider(
             create: (_) => sl<PaymentBloc>(),
-            child: PaymentPage(userId: userId, teacherId: teacherId),
+            child: PaymentPage(
+              userId: userId,
+              schoolId: schoolId,
+              embedInHomeShell: widget.embedInHomeShell,
+            ),
           ),
         ),
       );
@@ -289,11 +204,13 @@ class _PastMonthsRecordingsPageState extends State<PastMonthsRecordingsPage> {
 
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('පසුගිය වීඩියෝ පාඩම්'),
-          backgroundColor: Colors.purple,
-          foregroundColor: Colors.white,
-        ),
+        appBar: widget.embedInHomeShell
+            ? null
+            : AppBar(
+                title: const Text('පසුගිය මාසවල රෙකෝඩින්'),
+                backgroundColor: Colors.purple,
+                foregroundColor: Colors.white,
+              ),
         body: const Center(
           child: Text('Please login to view past months recordings'),
         ),
@@ -301,12 +218,14 @@ class _PastMonthsRecordingsPageState extends State<PastMonthsRecordingsPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('පසුගිය වීඩියෝ පාඩම්'),
-        backgroundColor: Colors.purple,
-        foregroundColor: Colors.white,
-      ),
-      body: _isLoading || _isLoadingSubjects
+      appBar: widget.embedInHomeShell
+          ? null
+          : AppBar(
+              title: const Text('පසුගිය මාසවල රෙකෝඩින්'),
+              backgroundColor: Colors.purple,
+              foregroundColor: Colors.white,
+            ),
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(
@@ -322,137 +241,206 @@ class _PastMonthsRecordingsPageState extends State<PastMonthsRecordingsPage> {
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
-                        onPressed: () {
-                          _loadPayments();
-                          _loadSubjects();
-                        },
+                        onPressed: _loadPayments,
                         child: const Text('Retry'),
                       ),
                     ],
                   ),
                 )
               : RefreshIndicator(
-                  onRefresh: () async {
-                    await Future.wait([
-                      _loadPayments(),
-                      _loadSubjects(),
-                    ]);
-                  },
+                  onRefresh: _loadPayments,
                   child: Column(
                     children: [
-                      // Grade and Subjects section at the top
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        color: Colors.grey[100],
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Grade dropdown
-                            const Text(
-                              'Select Grade:',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                      SingleChildScrollView(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              GradeSelector(
+                                value: _selectedGrade,
+                                label: 'පන්තිය',
+                                hint: 'පන්තිය තෝරන්න',
+                                onGradeSelected: (value) async {
+                                  setState(() {
+                                    _selectedGrade = value;
+                                    _selectedClassName = null;
+                                    _selectedClassDoc = null;
+                                    _selectedSubject = null;
+                                    _classesForGrade = [];
+                                    _classSubjectsForSelectedClass = [];
+                                    _subjectIdToName = {};
+                                  });
+                                  if (value != null && value.isNotEmpty) {
+                                    final schoolId = user!.teacherId ?? '';
+                                    if (schoolId.isEmpty) {
+                                      _loadPayments();
+                                      return;
+                                    }
+                                    setState(() => _loadingClasses = true);
+                                    final cache = sl<SchoolCacheService>();
+                                    final list = await cache.getClassesByGradeNumber(schoolId, value);
+                                    if (mounted) {
+                                      setState(() {
+                                        _classesForGrade = list;
+                                        _loadingClasses = false;
+                                        if (list.length == 1) {
+                                          _selectedClassDoc = list.first;
+                                          _selectedClassName = SchoolCacheService.classDisplayName(list.first, value);
+                                        }
+                                      });
+                                      if (list.length == 1 && list.first.isNotEmpty && schoolId.isNotEmpty) {
+                                        setState(() => _loadingClassSubjects = true);
+                                        final cache = sl<SchoolCacheService>();
+                                        final doc = list.first;
+                                        final classId = doc['id']?.toString() ?? '';
+                                        final cName = SchoolCacheService.classDisplayName(doc, value);
+                                        final subjects = await cache.getClassSubjectsForClass(schoolId, classId, cName);
+                                        final subjectDocs = await cache.getSubjects(schoolId);
+                                        final idToName = <String, String>{};
+                                        for (final s in subjectDocs) {
+                                          final id = s['id']?.toString();
+                                          if (id == null) continue;
+                                          final name = s['subject'] ?? s['name'] ?? s['title'];
+                                          if (name != null && name.toString().trim().isNotEmpty) {
+                                            idToName[id] = name.toString().trim();
+                                          }
+                                        }
+                                        if (mounted) {
+                                          setState(() {
+                                            _classSubjectsForSelectedClass = subjects;
+                                            _subjectIdToName = idToName;
+                                            _loadingClassSubjects = false;
+                                          });
+                                        }
+                                      }
+                                      _loadPayments();
+                                    }
+                                  } else {
+                                    _loadPayments();
+                                  }
+                                },
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            _isLoadingGrades
-                                ? Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Row(
-                                      children: [
-                                        SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        ),
-                                        SizedBox(width: 8),
-                                        Text('Loading grades...', style: TextStyle(color: Colors.grey)),
-                                      ],
+                              if (_selectedGrade != null && _selectedGrade!.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                if (_loadingClasses)
+                                  const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
+                                else if (_classesForGrade.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text(
+                                      'මෙම පන්තිය සඳහා පන්ති නොමැත',
+                                      style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
                                     ),
                                   )
-                                : _grades.isEmpty
-                                    ? Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: Colors.grey),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: const Text(
-                                          'No grades available',
-                                          style: TextStyle(color: Colors.grey),
-                                        ),
-                                      )
-                                    : DropdownButtonFormField<String>(
-                                        value: _selectedGrade,
-                                        decoration: InputDecoration(
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          filled: true,
-                                          fillColor: Colors.white,
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                        ),
-                                        hint: const Text('Select Grade'),
-                                        items: _grades.map((grade) {
-                                          return DropdownMenuItem<String>(
-                                            value: 'Grade $grade',
-                                            child: Text('Grade $grade'),
+                                else
+                                  DropdownButtonFormField<String>(
+                                    value: _selectedClassName != null &&
+                                            _classesForGrade.any((c) =>
+                                                SchoolCacheService.classDisplayName(c, _selectedGrade!) == _selectedClassName)
+                                        ? _selectedClassName
+                                        : null,
+                                    decoration: const InputDecoration(
+                                      labelText: 'පන්තියේ නම',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    hint: const Text('පන්තිය තෝරන්න'),
+                                    items: _classesForGrade.map((c) {
+                                      final name = SchoolCacheService.classDisplayName(c, _selectedGrade!);
+                                      return DropdownMenuItem<String>(value: name, child: Text(name));
+                                    }).toList(),
+                                    onChanged: (value) async {
+                                      final className = value ?? '';
+                                      final schoolId = user!.teacherId ?? '';
+                                      final doc = _classesForGrade.cast<Map<String, dynamic>>().firstWhere(
+                                            (c) => SchoolCacheService.classDisplayName(c, _selectedGrade!) == className,
+                                            orElse: () => <String, dynamic>{},
                                           );
-                                        }).toList(),
-                                        onChanged: (value) {
+                                      setState(() {
+                                        _selectedClassName = className;
+                                        _selectedClassDoc = doc.isNotEmpty ? doc : null;
+                                        _selectedSubject = null;
+                                        _classSubjectsForSelectedClass = [];
+                                        _subjectIdToName = {};
+                                      });
+                                      if (doc.isNotEmpty && schoolId.isNotEmpty) {
+                                        setState(() => _loadingClassSubjects = true);
+                                        final cache = sl<SchoolCacheService>();
+                                        final classId = doc['id']?.toString() ?? '';
+                                        final list = await cache.getClassSubjectsForClass(schoolId, classId, className);
+                                        final subjectDocs = await cache.getSubjects(schoolId);
+                                        final idToName = <String, String>{};
+                                        for (final s in subjectDocs) {
+                                          final id = s['id']?.toString();
+                                          if (id == null) continue;
+                                          final name = s['subject'] ?? s['name'] ?? s['title'];
+                                          if (name != null && name.toString().trim().isNotEmpty) {
+                                            idToName[id] = name.toString().trim();
+                                          }
+                                        }
+                                        if (mounted) {
                                           setState(() {
-                                            _selectedGrade = value;
-                                            // Clear subject selection when grade changes
-                                            _selectedSubject = null;
+                                            _classSubjectsForSelectedClass = list;
+                                            _subjectIdToName = idToName;
+                                            _loadingClassSubjects = false;
                                           });
-                                          // Reload payments when grade selection changes
+                                          _loadPayments();
+                                        }
+                                      } else {
+                                        _loadPayments();
+                                      }
+                                    },
+                                  ),
+                                const SizedBox(height: 12),
+                              ],
+                              if (_selectedClassDoc != null && _selectedClassName != null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'විෂය තෝරන්න',
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                        color: Theme.of(context).colorScheme.primary,
+                                      ),
+                                ),
+                                const SizedBox(height: 8),
+                                if (_loadingClassSubjects)
+                                  const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
+                                else if (_classSubjectsForSelectedClass.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    child: Text(
+                                      'මෙම පන්තිය සඳහා විෂය නොමැත',
+                                      style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                                    ),
+                                  )
+                                else
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: _classSubjectsForSelectedClass.map((item) {
+                                      final name = _subjectDisplayName(item);
+                                      final isSelected = _selectedSubject == name;
+                                      return FilterChip(
+                                        label: Text(name),
+                                        selected: isSelected,
+                                        onSelected: (_) {
+                                          setState(() {
+                                            _selectedSubject = isSelected ? null : name;
+                                          });
                                           _loadPayments();
                                         },
-                                      ),
-                            const SizedBox(height: 16),
-                            // Subjects section
-                            if (_subjects.isNotEmpty) ...[
-                              const Text(
-                                'Select Subject:',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: _subjects.map((subject) {
-                                  final isSelected = _selectedSubject == subject.subject;
-                                  return FilterChip(
-                                    label: Text(subject.subject),
-                                    selected: isSelected,
-                                    onSelected: _selectedGrade != null
-                                        ? (selected) {
-                                            setState(() {
-                                              _selectedSubject = selected ? subject.subject : null;
-                                            });
-                                            // Reload payments when subject selection changes
-                                            _loadPayments();
-                                          }
-                                        : null,
-                                    selectedColor: Colors.purple[200],
-                                    checkmarkColor: Colors.purple[900],
-                                    labelStyle: TextStyle(
-                                      color: isSelected ? Colors.purple[900] : Colors.black87,
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
+                                        selectedColor: Colors.purple[200],
+                                        checkmarkColor: Colors.purple[900],
+                                        labelStyle: TextStyle(
+                                          color: isSelected ? Colors.purple[900] : Colors.black87,
+                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                const SizedBox(height: 16),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                       ),
                       // Months list - only show when both grade and subject are selected
@@ -470,8 +458,8 @@ class _PastMonthsRecordingsPageState extends State<PastMonthsRecordingsPage> {
                                     const SizedBox(height: 16),
                                     Text(
                                       _selectedGrade == null
-                                          ? 'වීඩියෝ නැරබීමට පන්තිය හා විෂය තෝරන්න'
-                                          : 'වීඩියෝ නැරබීමට පන්තිය හා විෂය තෝරන්න',
+                                          ? 'Please select a grade to view months'
+                                          : 'Please select a subject to view months',
                                       style: TextStyle(
                                         fontSize: 16,
                                         color: Colors.grey[600],

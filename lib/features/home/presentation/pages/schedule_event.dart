@@ -8,18 +8,18 @@ abstract class ScheduleEvent extends Equatable {
 }
 
 class LoadGrades extends ScheduleEvent {
-  final String teacherId;
-  const LoadGrades(this.teacherId);
+  final String schoolId;
+  const LoadGrades(this.schoolId);
   @override
-  List<Object> get props => [teacherId];
+  List<Object> get props => [schoolId];
 }
 
 class LoadTimetable extends ScheduleEvent {
-  final String teacherId;
+  final String schoolId;
   final String grade;
 
-  const LoadTimetable(this.teacherId, this.grade);
+  const LoadTimetable(this.schoolId, this.grade);
 
   @override
-  List<Object> get props => [teacherId, grade];
+  List<Object> get props => [schoolId, grade];
 } 

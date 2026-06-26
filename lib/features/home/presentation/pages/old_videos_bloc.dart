@@ -40,7 +40,7 @@ class OldVideosBloc extends Bloc<OldVideosEvent, OldVideosState> {
       final videosResult = await getVideos(
         GetVideosParams(
           userId: event.userId,
-          teacherId: event.teacherId,
+          schoolId: event.schoolId,
           grade: gradeValue,
           subject: event.subject,
           month: currentMonth,

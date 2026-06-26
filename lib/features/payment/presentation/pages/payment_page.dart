@@ -3,23 +3,45 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/payment_bloc.dart';
 import '../../../../core/utils/month_utils.dart';
 import '../../../../core/services/master_data_service.dart';
+import '../../../../core/widgets/grade_selector.dart';
+import '../../../../core/services/school_cache_service.dart';
+import '../../../../injection_container.dart';
+import '../../../../core/widgets/resolved_firebase_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
 
 class PaymentPage extends StatefulWidget {
   final String userId;
-  final String teacherId;
-  
-  const PaymentPage({super.key, required this.userId, required this.teacherId});
+  final String schoolId;
+  final bool embedInHomeShell;
+
+  const PaymentPage({
+    super.key,
+    required this.userId,
+    required this.schoolId,
+    this.embedInHomeShell = false,
+  });
 
   @override
   State<PaymentPage> createState() => _PaymentPageState();
 }
 
 class _PaymentPageState extends State<PaymentPage> {
+  /// From app_config "payment_type": "subject" = pay per subject (show subject list), "class" = pay per class (no subject).
+  String? _paymentType;
+  bool _paymentTypeLoading = true;
+
   String? selectedGrade;
+  String? selectedClassName;
+  Map<String, dynamic>? selectedClassDoc;
+  List<Map<String, dynamic>> _classesForGrade = [];
+  bool _loadingClasses = false;
+  List<Map<String, dynamic>> _classSubjectsForSelectedClass = [];
+  bool _loadingClassSubjects = false;
+  Map<String, String> _subjectIdToName = {};
   String? selectedSubject;
+  String? selectedClassSubjectId;
   String? selectedMonth;
   PlatformFile? selectedFile;
   UploadTask? uploadTask;
@@ -27,191 +49,121 @@ class _PaymentPageState extends State<PaymentPage> {
   bool _isUploading = false;
   double _calculatedAmount = 0.0;
 
-  List<String> _grades = [];
-  List<String> _subjects = [];
-  bool _isLoadingGrades = true;
-  bool _isLoadingSubjects = true;
-  String? _gradesError;
-  String? _subjectsError;
   final List<String> months = MonthUtils.getAllMonthNames();
+
+  static const String _entireClassSubjectLabel = 'Entire Class';
+
+  /// True when required fields are set and we can confirm. payment_type "subject" needs subject; "class" does not.
+  bool _canConfirmPayment(dynamic state) {
+    if (state is PaymentLoading || _isUploading) return false;
+    if (selectedGrade == null || selectedClassName == null || selectedMonth == null || selectedFile == null) return false;
+    if (_paymentType == 'subject' && selectedSubject == null) return false;
+    return true;
+  }
+
+  /// True when payment_type is "class" (pay per class, no subject selection).
+  bool get _isPayPerClass => _paymentType == 'class';
 
   @override
   void initState() {
     super.initState();
-    // Set current month as default
     selectedMonth = MonthUtils.getMonthName(DateTime.now().month);
-    _loadGrades();
-    _loadSubjects();
-    // Don't calculate amount here since grade and subject are not selected yet
-    // Load pay account details when the page initializes
-    context.read<PaymentBloc>().add(LoadPayAccountDetails(widget.teacherId));
+    context.read<PaymentBloc>().add(LoadPayAccountDetails(widget.schoolId));
+    _loadPaymentType();
   }
 
-  Future<void> _loadGrades() async {
-    setState(() {
-      _isLoadingGrades = true;
-      _gradesError = null;
-    });
-    
+  /// On page load: read payment_type from cached app_config (SQLite). "subject" → subject payment UI; "class" → class payment UI.
+  Future<void> _loadPaymentType() async {
+    if (widget.schoolId.isEmpty) {
+      if (mounted) setState(() { _paymentType = 'subject'; _paymentTypeLoading = false; });
+      return;
+    }
     try {
-      print('💳 [DEBUG] PaymentPage - Starting to load grades from master data');
-      
-      // First try to get from teacher master data (master_teacher collection)
-      final masterData = await MasterDataService.getTeacherMasterData();
-      print('💳 [DEBUG] PaymentPage - Master data result: ${masterData != null ? "Found" : "Not found"}');
-      
-      if (masterData != null && masterData.grades.isNotEmpty) {
-        print('💳 [DEBUG] PaymentPage - Master data grades: ${masterData.grades}');
-        
+      final docs = await sl<SchoolCacheService>().getAppConfig(widget.schoolId);
+      final first = docs.isNotEmpty ? docs.first : null;
+      final value = (first?['payment_type'] ?? first?['paymentType'])?.toString().trim().toLowerCase();
+      if (mounted) {
         setState(() {
-          _grades = masterData.grades;
-          _isLoadingGrades = false;
+          _paymentType = (value == 'class' || value == 'subject') ? value : 'subject';
+          _paymentTypeLoading = false;
         });
-        print('✅ [DEBUG] PaymentPage - Successfully loaded ${_grades.length} grades from master_teacher collection');
-        print('✅ [DEBUG] PaymentPage - Grades: $_grades');
-        return;
       }
-      
-      // Fallback to Grade entities from master data
-      print('💳 [DEBUG] PaymentPage - Trying fallback: loading from Grade entities');
-      final gradeEntities = await MasterDataService.getGrades();
-      print('💳 [DEBUG] PaymentPage - Grade entities count: ${gradeEntities.length}');
-      
-      if (gradeEntities.isNotEmpty) {
-        final gradeNames = gradeEntities.map((g) => g.name).toList();
-        print('💳 [DEBUG] PaymentPage - Grade entity names: $gradeNames');
-        
-        setState(() {
-          _grades = gradeNames;
-          _isLoadingGrades = false;
-        });
-        print('⚠️ [DEBUG] PaymentPage - Loaded ${_grades.length} grades from Grade entities (fallback)');
-        print('⚠️ [DEBUG] PaymentPage - Grades: $_grades');
-        print('⚠️ [WARNING] PaymentPage - Using fallback grades collection instead of master_teacher!');
-        return;
-      }
-      
-      // If no grades found, set empty list
-      setState(() {
-        _grades = [];
-        _isLoadingGrades = false;
-      });
-      print('❌ [DEBUG] PaymentPage - No grades found in master data');
-    } catch (e) {
-      print('❌ [DEBUG] PaymentPage - Error loading grades: $e');
-      setState(() {
-        _gradesError = e.toString();
-        _grades = [];
-        _isLoadingGrades = false;
-      });
+    } catch (_) {
+      if (mounted) setState(() { _paymentType = 'subject'; _paymentTypeLoading = false; });
     }
   }
 
-  Future<void> _loadSubjects() async {
-    setState(() {
-      _isLoadingSubjects = true;
-      _subjectsError = null;
-    });
-    
-    try {
-      print('💳 [DEBUG] PaymentPage - Starting to load subjects from master data');
-      
-      // First try to get from teacher master data (master_teacher collection)
-      final masterData = await MasterDataService.getTeacherMasterData();
-      print('💳 [DEBUG] PaymentPage - Master data result: ${masterData != null ? "Found" : "Not found"}');
-      
-      if (masterData != null && masterData.subjects.isNotEmpty) {
-        print('💳 [DEBUG] PaymentPage - Master data subjects: ${masterData.subjects}');
-        
-        setState(() {
-          _subjects = masterData.subjects;
-          _isLoadingSubjects = false;
-        });
-        print('✅ [DEBUG] PaymentPage - Successfully loaded ${_subjects.length} subjects from master_teacher collection');
-        print('✅ [DEBUG] PaymentPage - Subjects: $_subjects');
-        return;
-      }
-      
-      // Fallback to Subject entities from master data
-      print('💳 [DEBUG] PaymentPage - Trying fallback: loading from Subject entities');
-      final subjectEntities = await MasterDataService.getSubjects();
-      print('💳 [DEBUG] PaymentPage - Subject entities count: ${subjectEntities.length}');
-      
-      if (subjectEntities.isNotEmpty) {
-        final subjectNames = subjectEntities.map((s) => s.subject).toList();
-        print('💳 [DEBUG] PaymentPage - Subject entity names: $subjectNames');
-        
-        setState(() {
-          _subjects = subjectNames;
-          _isLoadingSubjects = false;
-        });
-        print('⚠️ [DEBUG] PaymentPage - Loaded ${_subjects.length} subjects from Subject entities (fallback)');
-        print('⚠️ [DEBUG] PaymentPage - Subjects: $_subjects');
-        print('⚠️ [WARNING] PaymentPage - Using fallback subjects collection instead of master_teacher!');
-        return;
-      }
-      
-      // If no subjects found, set empty list
-      setState(() {
-        _subjects = [];
-        _isLoadingSubjects = false;
-      });
-      print('❌ [DEBUG] PaymentPage - No subjects found in master data');
-    } catch (e) {
-      print('❌ [DEBUG] PaymentPage - Error loading subjects: $e');
-      setState(() {
-        _subjectsError = e.toString();
-        _subjects = [];
-        _isLoadingSubjects = false;
-      });
-    }
+  /// Resolve subject display name from subjects table (by subject_id in class_subject doc). Do not display class_subject id.
+  String _subjectDisplayName(Map<String, dynamic> classSubjectItem) {
+    final subjectId = classSubjectItem['subject_id']?.toString() ??
+        classSubjectItem['subjectId']?.toString() ??
+        classSubjectItem['subject']?.toString();
+    if (subjectId == null || subjectId.isEmpty) return '—';
+    return _subjectIdToName[subjectId] ?? '—';
+  }
+
+  /// Parse fee/price from a doc (fee, price, amount, monthly_fee, etc.). Used for classes and class_subjects.
+  double? _feeFromDoc(Map<String, dynamic> doc) {
+    final raw = doc['fee'] ?? doc['price'] ?? doc['amount'] ?? doc['monthly_fee'] ?? doc['amount_fee'];
+    if (raw == null) return null;
+    if (raw is num) return raw.toDouble();
+    final s = raw.toString().trim().replaceAll(RegExp(r'[^\d.]'), '');
+    if (s.isEmpty) return null;
+    return double.tryParse(s);
   }
 
   Future<void> _calculateAmount() async {
-    if (selectedGrade == null || selectedSubject == null) {
-      setState(() {
-        _calculatedAmount = 0.0;
-      });
-      return;
-    }
-
     try {
-      // Extract grade number from "Grade X" format (e.g., "Grade 10" -> "10")
-      String gradeValue = selectedGrade!.replaceAll(RegExp(r'[^0-9]'), '');
-      
-      print('💳 [DEBUG] PaymentPage - Calculating amount for grade: $gradeValue, subject: $selectedSubject');
-      
-      // Get pricing from master data
-      final price = await MasterDataService.getPricing(selectedSubject!, gradeValue);
-      
-      if (price != null) {
-        print('✅ [DEBUG] PaymentPage - Found price from master data: Rs. $price');
-        setState(() {
-          _calculatedAmount = price.toDouble();
-        });
-      } else {
-        print('⚠️ [DEBUG] PaymentPage - No pricing found in master data for grade: $gradeValue, subject: $selectedSubject');
-        // Fallback: try to get pricing with "Grade X" format
-        final gradeWithPrefix = selectedGrade!.contains('Grade') ? selectedGrade! : 'Grade $selectedGrade!';
-        final priceWithPrefix = await MasterDataService.getPricing(selectedSubject!, gradeWithPrefix);
-        
-        if (priceWithPrefix != null) {
-          print('✅ [DEBUG] PaymentPage - Found price with grade prefix: Rs. $priceWithPrefix');
-          setState(() {
-            _calculatedAmount = priceWithPrefix.toDouble();
-          });
-        } else {
-          print('❌ [DEBUG] PaymentPage - No pricing found, setting to 0');
-          setState(() {
-            _calculatedAmount = 0.0;
-          });
+      // 1) Subject payment mode + subject selected: fee must come from class_subjects (selected class_subject_id doc)
+      if (!_isPayPerClass &&
+          selectedClassSubjectId != null &&
+          _classSubjectsForSelectedClass.isNotEmpty) {
+        Map<String, dynamic>? selectedDoc;
+        for (final d in _classSubjectsForSelectedClass) {
+          final id = d['id']?.toString();
+          if (id != null && id == selectedClassSubjectId) {
+            selectedDoc = d;
+            break;
+          }
+        }
+        if (selectedDoc != null) {
+          final fee = _feeFromDoc(selectedDoc);
+          if (fee != null && fee >= 0) {
+            setState(() => _calculatedAmount = fee);
+            return;
+          }
         }
       }
+
+      // 2) Class payment mode or no subject selected: fee from classes collection (selectedClassDoc)
+      if (selectedClassDoc != null && selectedClassDoc!.isNotEmpty) {
+        final fee = _feeFromDoc(selectedClassDoc!);
+        if (fee != null && fee >= 0) {
+          setState(() => _calculatedAmount = fee);
+          return;
+        }
+      }
+
+      // 3) Fallback: master data (requires grade + subject)
+      if (selectedGrade == null || selectedSubject == null) {
+        setState(() => _calculatedAmount = 0.0);
+        return;
+      }
+      String gradeValue = selectedGrade!.replaceAll(RegExp(r'[^0-9]'), '');
+      final price = await MasterDataService.getPricing(selectedSubject!, gradeValue);
+      if (price != null) {
+        setState(() => _calculatedAmount = price.toDouble());
+        return;
+      }
+      final gradeWithPrefix = selectedGrade!.contains('Grade') ? selectedGrade! : 'Grade ${selectedGrade!}';
+      final priceWithPrefix = await MasterDataService.getPricing(selectedSubject!, gradeWithPrefix);
+      if (priceWithPrefix != null) {
+        setState(() => _calculatedAmount = priceWithPrefix.toDouble());
+      } else {
+        setState(() => _calculatedAmount = 0.0);
+      }
     } catch (e) {
-      print('❌ [DEBUG] PaymentPage - Error calculating amount: $e');
-      setState(() {
-        _calculatedAmount = 0.0;
-      });
+      setState(() => _calculatedAmount = 0.0);
     }
   }
 
@@ -351,11 +303,14 @@ class _PaymentPageState extends State<PaymentPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('පන්ති ගාස්තු ගෙවීම'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: Colors.grey.shade50,
+      appBar: widget.embedInHomeShell
+          ? null
+          : AppBar(
+              title: const Text('පන්ති ගාස්තු ගෙවීම'),
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
       body: BlocConsumer<PaymentBloc, PaymentState>(
         listener: (context, state) {
           if (state is PaymentSuccess) {
@@ -365,7 +320,11 @@ class _PaymentPageState extends State<PaymentPage> {
                 backgroundColor: Colors.green,
               ),
             );
-            Navigator.of(context).pop();
+            // Pop when this page was pushed (e.g. notes → payment). When this
+            // route is the shell root (Payments tab), there is nothing to pop.
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
           }
           if (state is PaymentFailure) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -377,113 +336,322 @@ class _PaymentPageState extends State<PaymentPage> {
           }
         },
         builder: (context, state) {
+          if (_paymentTypeLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          // UI style: clean, minimalistic, light palette, rounded corners
+          final labelStyle = TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey[800],
+          );
+          final inputDecoration = InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300!),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            labelStyle: TextStyle(color: Colors.grey[700]),
+          );
+          const accentBlue = Color(0xFF64B5F6);
+
           return SingleChildScrollView(
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (Navigator.of(context).canPop())
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: IconButton(
+                        tooltip: 'Back',
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'පන්තිය සහ ගෙවීම් තොරතුරු ලබා දෙන්න',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
                   Card(
+                    elevation: 0,
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: Colors.grey.shade200!),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.all(20.0),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text(
-                            'පහත තොරතුරු තෝරන්න',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
                           
-                          // Grade Dropdown
-                          DropdownButtonFormField<String>(
+                          // Grade: common GradeSelector (1–13)
+                          GradeSelector(
                             value: selectedGrade,
-                            decoration: InputDecoration(
-                              labelText: 'පන්තිය',
-                              border: const OutlineInputBorder(),
-                              errorText: _gradesError != null ? _gradesError : null,
-                            ),
-                            items: _isLoadingGrades
-                                ? [
-                                    const DropdownMenuItem<String>(
-                                      value: null,
-                                      child: Text('Loading grades...'),
-                                    )
-                                  ]
-                                : _grades.isEmpty
-                                    ? [
-                                        const DropdownMenuItem<String>(
-                                          value: null,
-                                          child: Text('No grades available'),
-                                        )
-                                      ]
-                                    : _grades.map((grade) {
-                                        final gradeValue = grade.contains('Grade') ? grade : 'Grade $grade';
-                                        return DropdownMenuItem<String>(
-                                          value: gradeValue,
-                                          child: Text(gradeValue),
-                                        );
-                                      }).toList(),
-                            onChanged: _isLoadingGrades || _grades.isEmpty
-                                ? null
-                                : (value) async {
-                                    setState(() {
-                                      selectedGrade = value;
-                                    });
-                                    await _calculateAmount();
-                                  },
+                            label: 'පන්තිය',
+                            hint: 'පන්තිය තෝරන්න',
+                            onGradeSelected: (value) async {
+                              setState(() {
+                                selectedGrade = value;
+                                selectedClassName = null;
+                                selectedClassDoc = null;
+                                selectedSubject = null;
+                                selectedClassSubjectId = null;
+                                _classesForGrade = [];
+                                _classSubjectsForSelectedClass = [];
+                                _subjectIdToName = {};
+                              });
+                              if (value != null && value.isNotEmpty && widget.schoolId.isNotEmpty) {
+                                setState(() => _loadingClasses = true);
+                                final cache = sl<SchoolCacheService>();
+                                final list = await cache.getClassesByGradeNumber(widget.schoolId, value);
+                                if (mounted) {
+                                  setState(() {
+                                    _classesForGrade = list;
+                                    _loadingClasses = false;
+                                    if (list.length == 1) {
+                                      selectedClassDoc = list.first;
+                                      selectedClassName = SchoolCacheService.classDisplayName(list.first, value);
+                                    }
+                                  });
+                                  if (!_isPayPerClass && list.length == 1 && list.first.isNotEmpty && widget.schoolId.isNotEmpty) {
+                                    setState(() => _loadingClassSubjects = true);
+                                    final cache = sl<SchoolCacheService>();
+                                    final doc = list.first;
+                                    final classId = doc['id']?.toString() ?? '';
+                                    final cName = SchoolCacheService.classDisplayName(doc, value);
+                                    final subjects = await cache.getClassSubjectsForClass(
+                                        widget.schoolId, classId, cName);
+                                    final subjectDocs = await cache.getSubjects(widget.schoolId);
+                                    final idToName = <String, String>{};
+                                    for (final s in subjectDocs) {
+                                      final id = s['id']?.toString();
+                                      if (id == null) continue;
+                                      final name = s['subject'] ?? s['name'] ?? s['title'];
+                                      if (name != null && name.toString().trim().isNotEmpty) {
+                                        idToName[id] = name.toString().trim();
+                                      }
+                                    }
+                                    if (mounted) {
+                                      setState(() {
+                                        _classSubjectsForSelectedClass = subjects;
+                                        _subjectIdToName = idToName;
+                                        _loadingClassSubjects = false;
+                                      });
+                                    }
+                                  }
+                                  await _calculateAmount();
+                                }
+                              }
+                            },
                           ),
-                          const SizedBox(height: 16),
-                          
-                          // Subject Dropdown
-                          DropdownButtonFormField<String>(
-                            value: selectedSubject,
-                            decoration: InputDecoration(
-                              labelText: 'විෂය',
-                              border: const OutlineInputBorder(),
-                              errorText: _subjectsError != null ? _subjectsError : null,
-                            ),
-                            items: _isLoadingSubjects
-                                ? [
-                                    const DropdownMenuItem<String>(
-                                      value: null,
-                                      child: Text('Loading subjects...'),
-                                    )
-                                  ]
-                                : _subjects.isEmpty
-                                    ? [
-                                        const DropdownMenuItem<String>(
-                                          value: null,
-                                          child: Text('No subjects available'),
-                                        )
-                                      ]
-                                    : _subjects.map((subject) {
-                                        return DropdownMenuItem<String>(
-                                          value: subject,
-                                          child: Text(subject),
-                                        );
-                                      }).toList(),
-                            onChanged: _isLoadingSubjects || _subjects.isEmpty
-                                ? null
-                                : (value) async {
-                                    setState(() {
-                                      selectedSubject = value;
-                                    });
+                          // Class name: selectable when multiple classes for this grade
+                          if (selectedGrade != null && selectedGrade!.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            if (_loadingClasses)
+                              const SizedBox(
+                                height: 48,
+                                child: Center(child: CircularProgressIndicator()),
+                              )
+                            else if (_classesForGrade.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: Text(
+                                  'මෙම පන්තිය සඳහා පන්ති නොමැත',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              )
+                            else
+                              DropdownButtonFormField<String>(
+                                value: selectedClassName != null &&
+                                        _classesForGrade.any((c) =>
+                                            SchoolCacheService.classDisplayName(c, selectedGrade!) == selectedClassName)
+                                    ? selectedClassName
+                                    : null,
+                                decoration: inputDecoration.copyWith(labelText: 'පන්තියේ නම'),
+                                hint: const Text('පන්තිය තෝරන්න'),
+                                items: _classesForGrade.map((c) {
+                                  final name = SchoolCacheService.classDisplayName(c, selectedGrade!);
+                                  return DropdownMenuItem<String>(
+                                    value: name,
+                                    child: Text(name),
+                                  );
+                                }).toList(),
+                                onChanged: (value) async {
+                                  final className = value ?? '';
+                                  final doc = _classesForGrade.cast<Map<String, dynamic>>().firstWhere(
+                                        (c) => SchoolCacheService.classDisplayName(c, selectedGrade!) == className,
+                                        orElse: () => <String, dynamic>{},
+                                      );
+                                  setState(() {
+                                    selectedClassName = className;
+                                    selectedClassDoc = doc.isNotEmpty ? doc : null;
+                                    selectedSubject = null;
+                                    selectedClassSubjectId = null;
+                                    _classSubjectsForSelectedClass = [];
+                                    _subjectIdToName = {};
+                                  });
+                                  if (doc.isNotEmpty && widget.schoolId.isNotEmpty) {
+                                    if (!_isPayPerClass) {
+                                      setState(() => _loadingClassSubjects = true);
+                                      final cache = sl<SchoolCacheService>();
+                                      final classId = doc['id']?.toString() ?? '';
+                                      final list = await cache.getClassSubjectsForClass(
+                                          widget.schoolId, classId, className);
+                                      final subjectDocs = await cache.getSubjects(widget.schoolId);
+                                      final idToName = <String, String>{};
+                                      for (final s in subjectDocs) {
+                                        final id = s['id']?.toString();
+                                        if (id == null) continue;
+                                        final name = s['subject'] ?? s['name'] ?? s['title'];
+                                        if (name != null && name.toString().trim().isNotEmpty) {
+                                          idToName[id] = name.toString().trim();
+                                        }
+                                      }
+                                      if (mounted) {
+                                        setState(() {
+                                          _classSubjectsForSelectedClass = list;
+                                          _subjectIdToName = idToName;
+                                          _loadingClassSubjects = false;
+                                        });
+                                      }
+                                    }
                                     await _calculateAmount();
-                                  },
-                          ),
+                                  } else {
+                                    _calculateAmount();
+                                  }
+                                },
+                              ),
+                            const SizedBox(height: 8),
+                          ],
+                          // Class subjects list – only when "Select subject" tab
+                          if (!_isPayPerClass && selectedClassDoc != null && selectedClassName != null) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              'විෂය',
+                              style: labelStyle,
+                            ),
+                            const SizedBox(height: 8),
+                            if (_loadingClassSubjects)
+                              const SizedBox(
+                                height: 48,
+                                child: Center(child: CircularProgressIndicator()),
+                              )
+                            else if (_classSubjectsForSelectedClass.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                child: Text(
+                                  'මෙම පන්තිය සඳහා විෂය නොමැත',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              )
+                            else
+                              ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: _classSubjectsForSelectedClass.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                itemBuilder: (context, index) {
+                                  final item = _classSubjectsForSelectedClass[index];
+                                  final title = _subjectDisplayName(item);
+                                  final subtitle = item['description']?.toString() ?? item['code']?.toString();
+                                  return Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () async {
+                                        setState(() {
+                                          selectedSubject = title;
+                                          selectedClassSubjectId = item['id']?.toString();
+                                        });
+                                        await _calculateAmount();
+                                      },
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 14, horizontal: 14),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(color: Colors.grey.shade300!),
+                                          borderRadius: BorderRadius.circular(12),
+                                          color: selectedSubject == title
+                                              ? accentBlue.withOpacity(0.12)
+                                              : Colors.white,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.menu_book_outlined,
+                                              size: 24,
+                                              color: accentBlue,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    title,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 16,
+                                                    ),
+                                                  ),
+                                                  if (subtitle != null && subtitle.isNotEmpty) ...[
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      subtitle,
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: Colors.grey.shade600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
+                                            if (selectedSubject == title)
+                                              Icon(
+                                                Icons.check_circle,
+                                                color: accentBlue,
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            const SizedBox(height: 16),
+                          ],
                           const SizedBox(height: 16),
                           
                           // Month Dropdown
                           DropdownButtonFormField<String>(
                             value: selectedMonth,
-                            decoration: const InputDecoration(
-                              labelText: 'මාසය',
-                              border: OutlineInputBorder(),
-                            ),
+                            decoration: inputDecoration.copyWith(labelText: 'මාසය'),
                             items: months.map((month) {
                               return DropdownMenuItem(
                                 value: month,
@@ -497,19 +665,54 @@ class _PaymentPageState extends State<PaymentPage> {
                             },
                           ),
                           const SizedBox(height: 16),
-                          // File Picker Button
-                          ElevatedButton.icon(
-                            onPressed: pickFile,
-                            icon: const Icon(Icons.attach_file),
-                            label: const Text('මුදල් තැම්පත් කල රිසිට්පත තෝරන්න'),
+                          // Upload receipt – dashed-style area (light blue border, paperclip + text)
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: pickFile,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: accentBlue,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.attach_file, size: 24, color: accentBlue),
+                                    const SizedBox(width: 12),
+                                    Flexible(
+                                      child: Text(
+                                        'මුදල් තැම්පත් කල රිසිට්පත තෝරන්න',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: accentBlue,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
                           if (selectedFile != null) ...[
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 10),
                             Row(
                               children: [
-                                Icon(selectedFile!.extension == 'pdf' ? Icons.picture_as_pdf : Icons.image),
+                                Icon(selectedFile!.extension == 'pdf' ? Icons.picture_as_pdf : Icons.image, size: 20, color: Colors.grey[700]),
                                 const SizedBox(width: 8),
-                                Expanded(child: Text(selectedFile!.name)),
+                                Expanded(child: Text(selectedFile!.name, style: TextStyle(fontSize: 13, color: Colors.grey[700]))),
                               ],
                             ),
                           ],
@@ -521,20 +724,15 @@ class _PaymentPageState extends State<PaymentPage> {
                   const SizedBox(height: 20),
                   
                   
-                  // Pay Button
+                  // Confirm payment button – pill-shaped, light blue-grey, bold dark text
+                  const SizedBox(height: 8),
                   ElevatedButton(
-                    onPressed: (selectedGrade != null && 
-                               selectedSubject != null && 
-                               selectedMonth != null &&
-                               selectedFile != null &&
-                               state is! PaymentLoading &&
-                               !_isUploading)
+                    onPressed: _canConfirmPayment(state)
                         ? () async {
                             try {
                               String? slipUrl;
                               if (selectedFile != null) {
                                 slipUrl = await uploadFile();
-                                
                                 if (slipUrl == null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
@@ -545,19 +743,16 @@ class _PaymentPageState extends State<PaymentPage> {
                                   return;
                                 }
                               }
-                              
-                              // Extract grade number only (remove "Grade" text)
                               final gradeNumber = selectedGrade!.replaceAll(RegExp(r'[^0-9]'), '');
-                              
-                              print('🎬 PaymentPage: Creating payment with grade number: $gradeNumber (from: $selectedGrade)');
-                              
-                              // Proceed with payment
+                              final isPayPerClass = _isPayPerClass;
                               context.read<PaymentBloc>().add(
                                 CreatePaymentRequested(
                                   userId: widget.userId,
-                                  teacherId: widget.teacherId,
-                                  grade: gradeNumber, // Send only the grade number
-                                  subject: selectedSubject!,
+                                  teacherId: widget.schoolId,
+                                  grade: gradeNumber,
+                                  className: selectedClassName ?? '',
+                                  classSubjectId: isPayPerClass ? '' : (selectedClassSubjectId ?? ''),
+                                  subject: isPayPerClass ? _entireClassSubjectLabel : (selectedSubject ?? ''),
                                   month: selectedMonth!,
                                   year: DateTime.now().year,
                                   amount: _calculatedAmount,
@@ -575,58 +770,85 @@ class _PaymentPageState extends State<PaymentPage> {
                           }
                         : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: selectedFile != null ? Colors.orange : Colors.green,
-                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xFFB0BEC5),
+                      foregroundColor: Colors.grey[800],
                       padding: const EdgeInsets.symmetric(vertical: 16),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
                     ),
                     child: _isUploading
                         ? Column(
+                            mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const CircularProgressIndicator(color: Colors.white),
                               const SizedBox(height: 8),
                               Text(
                                 'Uploading: ${(_uploadProgress * 100).toStringAsFixed(1)}%',
-                                style: const TextStyle(color: Colors.white, fontSize: 16),
+                                style: TextStyle(color: Colors.grey[800], fontSize: 14, fontWeight: FontWeight.w600),
                               ),
                             ],
                           )
                         : (state is PaymentLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? SizedBox(height: 24, child: CircularProgressIndicator(color: Colors.grey[800]))
                             : Text(
-                                'ඔබගේ ගෙවීම තහවුරු කරන්න : Rs. $_calculatedAmount',
-                                style: const TextStyle(fontSize: 12),
+                                'ඔබගේ ගෙවීම තහවුරු කරන්න : Rs ${_calculatedAmount.toStringAsFixed(2)}',
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.grey[800]),
                               )),
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Text(
+                      'SECURE PAYMENT PROCESSING',
+                      style: TextStyle(
+                        fontSize: 11,
+                        letterSpacing: 0.8,
+                        color: Colors.grey[500],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
 
 
-                    // Payment Summary Card
-                  if (selectedGrade != null && selectedSubject != null && selectedMonth != null)
+                    // Payment Summary Card – light, rounded, subtle border
+                  if (selectedGrade != null && selectedClassName != null && selectedMonth != null &&
+                      (selectedSubject != null || _isPayPerClass))
                     Card(
-                      color: Colors.blue.shade50,
+                      elevation: 0,
+                      color: Colors.grey.shade50,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: Colors.grey.shade200!),
+                      ),
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.all(20.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'මුදල් ගෙවීමේ රිසිට්පත යොමුකිරිම',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
+                                color: Colors.grey[800],
                               ),
                             ),
                             const SizedBox(height: 12),
-                            Text('පන්තිය : $selectedGrade'),
-                            Text('විෂය : $selectedSubject'),
-                            Text('මාසය : $selectedMonth ${DateTime.now().year}'),
+                            Text('පන්තිය : ${selectedClassName ?? (selectedGrade != null && selectedGrade!.contains('Grade') ? selectedGrade : 'Grade $selectedGrade')}', style: TextStyle(fontSize: 14, color: Colors.grey[700])),
+                            Text(
+                              'විෂය : ${_isPayPerClass ? _entireClassSubjectLabel : selectedSubject}',
+                              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                            ),
+                            Text('මාසය : $selectedMonth ${DateTime.now().year}', style: TextStyle(fontSize: 14, color: Colors.grey[700])),
                             const SizedBox(height: 8),
                             Text(
-                              'මුදල : Rs. $_calculatedAmount',
-                              style: const TextStyle(
+                              'මුදල : Rs ${_calculatedAmount.toStringAsFixed(2)}',
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.green,
+                                color: Colors.grey[800],
                               ),
                             ),
                           ],
@@ -646,7 +868,8 @@ class _PaymentPageState extends State<PaymentPage> {
                           child: CircularProgressIndicator(),
                         );
                       } else if (state is PayAccountDetailsLoaded) {
-                        if (state.bankDetailImages.isEmpty) {
+                        final images = state.bankDetailImages.where((s) => s.trim().isNotEmpty).toList();
+                        if (images.isEmpty) {
                           return const Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -665,44 +888,12 @@ class _PaymentPageState extends State<PaymentPage> {
                         
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: state.bankDetailImages.map((imageUrl) {
+                          children: images.map((imageUrl) {
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 16),
-                              child: Image.network(
-                                imageUrl,
+                              child: ResolvedFirebaseImage(
+                                reference: imageUrl,
                                 fit: BoxFit.contain,
-                                width: double.infinity,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Center(
-                                    child: CircularProgressIndicator(
-                                      value: loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                          : null,
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.red),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.error_outline, size: 48, color: Colors.red),
-                                        SizedBox(height: 8),
-                                        Text(
-                                          'Failed to load image',
-                                          style: TextStyle(fontSize: 14),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
                               ),
                             );
                           }).toList(),
@@ -722,7 +913,7 @@ class _PaymentPageState extends State<PaymentPage> {
                               const SizedBox(height: 16),
                               ElevatedButton(
                                 onPressed: () {
-                                  context.read<PaymentBloc>().add(LoadPayAccountDetails(widget.teacherId));
+                                  context.read<PaymentBloc>().add(LoadPayAccountDetails(widget.schoolId));
                                 },
                                 child: const Text('Retry'),
                               ),

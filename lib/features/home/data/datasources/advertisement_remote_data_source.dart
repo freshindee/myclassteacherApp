@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/video_model.dart';
 
 abstract class AdvertisementRemoteDataSource {
-  Future<List<VideoModel>> getAdvertisements(String teacherId);
+  Future<List<VideoModel>> getAdvertisements(String schoolId);
 }
 
 class AdvertisementRemoteDataSourceImpl implements AdvertisementRemoteDataSource {
@@ -11,16 +11,17 @@ class AdvertisementRemoteDataSourceImpl implements AdvertisementRemoteDataSource
   AdvertisementRemoteDataSourceImpl({required this.firestore});
 
   @override
-  Future<List<VideoModel>> getAdvertisements(String teacherId) async {
+  Future<List<VideoModel>> getAdvertisements(String schoolId) async {
     try {
-      print('📢 [API REQUEST] AdvertisementDataSource.getAdvertisements called with teacherId: $teacherId');
+      print('📢 [API REQUEST] AdvertisementDataSource.getAdvertisements called with schoolId: $schoolId');
       
       final querySnapshot = await firestore
+          .collection('schools')
+          .doc(schoolId)
           .collection('advertisements')
-          .where('teacherId', isEqualTo: teacherId)
           .get();
       
-      print('📢 [API RESPONSE] Found ${querySnapshot.docs.length} advertisement documents for teacherId: $teacherId');
+      print('📢 [API RESPONSE] Found ${querySnapshot.docs.length} advertisement documents for schoolId: $schoolId');
       
       final advertisements = querySnapshot.docs.map((doc) {
         final data = doc.data();

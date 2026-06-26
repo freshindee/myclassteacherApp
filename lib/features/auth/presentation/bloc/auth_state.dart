@@ -15,6 +15,12 @@ class AuthState extends Equatable {
   final User? user;
   final bool isLogout;
   final bool hasSubmitted;
+  /// True while initial school cache sync is in progress (first launch / no cache).
+  final bool isInitialSyncInProgress;
+  /// Incremented when background cache sync completes; UI can use this to refresh.
+  final int cacheSyncVersion;
+  /// True when app_config has update_the_app: true; UI should prompt to open Play Store.
+  final bool forceUpdateRequired;
 
   const AuthState({
     this.phoneNumber = '',
@@ -31,6 +37,9 @@ class AuthState extends Equatable {
     this.user,
     this.isLogout = false,
     this.hasSubmitted = false,
+    this.isInitialSyncInProgress = false,
+    this.cacheSyncVersion = 0,
+    this.forceUpdateRequired = false,
   });
 
   AuthState copyWith({
@@ -48,6 +57,9 @@ class AuthState extends Equatable {
     User? user,
     bool? isLogout,
     bool? hasSubmitted,
+    bool? isInitialSyncInProgress,
+    int? cacheSyncVersion,
+    bool? forceUpdateRequired,
     bool clearTeacherIdError = false,
     bool clearPhoneNumberError = false,
     bool clearPasswordError = false,
@@ -68,6 +80,9 @@ class AuthState extends Equatable {
       user: user ?? this.user,
       isLogout: isLogout ?? this.isLogout,
       hasSubmitted: hasSubmitted ?? this.hasSubmitted,
+      isInitialSyncInProgress: isInitialSyncInProgress ?? this.isInitialSyncInProgress,
+      cacheSyncVersion: cacheSyncVersion ?? this.cacheSyncVersion,
+      forceUpdateRequired: forceUpdateRequired ?? this.forceUpdateRequired,
     );
   }
 
@@ -87,5 +102,8 @@ class AuthState extends Equatable {
     user,
     isLogout,
     hasSubmitted,
+    isInitialSyncInProgress,
+    cacheSyncVersion,
+    forceUpdateRequired,
   ];
 }

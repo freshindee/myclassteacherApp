@@ -15,13 +15,13 @@ class TodayClassRepositoryImpl implements TodayClassRepository {
   });
 
   @override
-  Future<Either<Failure, List<TodayClass>>> getTodayClasses(String teacherId, {String? grade, String? subject}) async {
-    print('📚 [REPOSITORY] TodayClassRepository.getTodayClasses called with teacherId: $teacherId, grade: $grade, subject: $subject');
+  Future<Either<Failure, List<TodayClass>>> getTodayClasses(String schoolId) async {
+    print('📚 [REPOSITORY] TodayClassRepository.getTodayClasses called with schoolId: $schoolId');
     
     if (await networkInfo.isConnected) {
       try {
         print('📚 [REPOSITORY] Network connected, calling remote data source...');
-        final classModels = await remoteDataSource.getTodayClasses(teacherId, grade: grade, subject: subject);
+        final classModels = await remoteDataSource.getTodayClasses(schoolId);
         print('📚 [REPOSITORY] Successfully fetched ${classModels.length} today class models from remote data source');
         
         // Debug: Print zoomId and password for each model

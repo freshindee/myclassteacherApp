@@ -60,10 +60,10 @@ class PaymentRepositoryImpl implements PaymentRepository {
   }
 
   @override
-  Future<Either<Failure, List<Payment>>> getUserPayments(String userId, {String? teacherId}) async {
+  Future<Either<Failure, List<Payment>>> getUserPayments(String userId, {String? schoolId}) async {
     if (await networkInfo.isConnected) {
       try {
-        final paymentModels = await remoteDataSource.getUserPayments(userId, teacherId: teacherId);
+        final paymentModels = await remoteDataSource.getUserPayments(userId, schoolId: schoolId);
         final payments = paymentModels.map((model) => model.toEntity()).toList();
         return Right(payments);
       } catch (e) {
@@ -75,17 +75,17 @@ class PaymentRepositoryImpl implements PaymentRepository {
   }
 
   @override
-  Future<Either<Failure, PayAccountDetails?>> getPayAccountDetails(String teacherId) async {
+  Future<Either<Failure, PayAccountDetails?>> getPayAccountDetails(String schoolId) async {
     if (await networkInfo.isConnected) {
       try {
-        print('💰 [REPOSITORY] PaymentRepository.getPayAccountDetails called with teacherId: $teacherId');
-        final payAccountDetailsModel = await remoteDataSource.getPayAccountDetails(teacherId);
+        print('💰 [REPOSITORY] PaymentRepository.getPayAccountDetails called with schoolId: $schoolId');
+        final payAccountDetailsModel = await remoteDataSource.getPayAccountDetails(schoolId);
         if (payAccountDetailsModel == null) {
-          print('💰 [REPOSITORY] No pay account details found for teacherId: $teacherId');
+          print('💰 [REPOSITORY] No pay account details found for schoolId: $schoolId');
           return const Right(null);
         }
         final payAccountDetails = payAccountDetailsModel.toEntity();
-        print('💰 [REPOSITORY] Successfully retrieved pay account details for teacherId: $teacherId');
+        print('💰 [REPOSITORY] Successfully retrieved pay account details for schoolId: $schoolId');
         return Right(payAccountDetails);
       } catch (e) {
         print('💰 [REPOSITORY ERROR] Failed to get pay account details: $e');

@@ -17,13 +17,13 @@ class TimetableRepositoryImpl implements TimetableRepository {
   });
 
   @override
-  Future<Either<Failure, List<Timetable>>> getTimetableByGrade(String teacherId, String grade) async {
-    print('📅 [REPOSITORY] TimetableRepository.getTimetableByGrade called with teacherId: $teacherId, grade: $grade');
+  Future<Either<Failure, List<Timetable>>> getTimetableByGrade(String schoolId, String grade) async {
+    print('📅 [REPOSITORY] TimetableRepository.getTimetableByGrade called with schoolId: $schoolId, grade: $grade');
     
     if (await networkInfo.isConnected) {
       try {
         print('📅 [REPOSITORY] Network connected, calling remote data source...');
-        final timetableModels = await remoteDataSource.getTimetableByGrade(teacherId, grade);
+        final timetableModels = await remoteDataSource.getTimetableByGrade(schoolId, grade);
         print('📅 [REPOSITORY] Successfully fetched ${timetableModels.length} timetable models from remote data source for grade $grade');
         
         final timetables = timetableModels.map((model) => Timetable(
@@ -56,13 +56,13 @@ class TimetableRepositoryImpl implements TimetableRepository {
   }
 
   @override
-  Future<Either<Failure, List<String>>> getAvailableGrades(String teacherId) async {
-    print('📅 [REPOSITORY] TimetableRepository.getAvailableGrades called with teacherId: $teacherId');
+  Future<Either<Failure, List<String>>> getAvailableGrades(String schoolId) async {
+    print('📅 [REPOSITORY] TimetableRepository.getAvailableGrades called with schoolId: $schoolId');
     
     if (await networkInfo.isConnected) {
       try {
         print('📅 [REPOSITORY] Network connected, calling remote data source...');
-        final grades = await remoteDataSource.getAvailableGrades(teacherId);
+        final grades = await remoteDataSource.getAvailableGrades(schoolId);
         print('📅 [REPOSITORY] Successfully fetched ${grades.length} available grades from remote data source: $grades');
         return Right(grades);
       } catch (e) {

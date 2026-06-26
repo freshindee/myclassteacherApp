@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../injection_container.dart';
+import '../../../../core/widgets/grade_selector.dart';
+import '../../../../core/services/school_cache_service.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../payment/domain/entities/payment.dart';
 import '../../../payment/domain/usecases/get_user_payments.dart';
 import '../../../payment/presentation/pages/payment_page.dart';
 import '../../../payment/presentation/bloc/payment_bloc.dart';
-import '../../domain/usecases/get_subjects.dart';
-import '../../domain/entities/subject.dart';
-import '../../../../core/services/master_data_service.dart';
-import 'notes_assignments_page.dart';
+import 'past_month_notes_list_page.dart';
 
 class PastMonthsNotesPage extends StatefulWidget {
-  const PastMonthsNotesPage({super.key});
+  const PastMonthsNotesPage({super.key, this.embedInHomeShell = false});
+
+  final bool embedInHomeShell;
 
   @override
   State<PastMonthsNotesPage> createState() => _PastMonthsNotesPageState();
@@ -19,147 +22,93 @@ class PastMonthsNotesPage extends StatefulWidget {
 
 class _PastMonthsNotesPageState extends State<PastMonthsNotesPage> {
   List<int> _paidMonths = [];
-  List<Subject> _subjects = [];
-  List<String> _grades = [];
+  List<dynamic> currentMonthPayments = [];
+  bool paymentsLoaded = false;
   String? _selectedSubject;
   String? _selectedGrade;
+  String? _selectedClassName;
+  Map<String, dynamic>? _selectedClassDoc;
+  List<Map<String, dynamic>> _classesForGrade = [];
+  bool _loadingClasses = false;
+  List<Map<String, dynamic>> _classSubjectsForSelectedClass = [];
+  bool _loadingClassSubjects = false;
+  Map<String, String> _subjectIdToName = {};
   bool _isLoading = true;
-  bool _isLoadingSubjects = true;
-  bool _isLoadingGrades = true;
   String? _error;
-  String? _subjectsError;
-  String? _gradesError;
 
   @override
   void initState() {
     super.initState();
     _loadPayments();
-    _loadSubjects();
-    _loadGrades();
   }
 
-  Future<void> _loadGrades() async {
-    setState(() {
-      _isLoadingGrades = true;
-      _gradesError = null;
-    });
-    
-    try {
-      print('📝 [DEBUG] PastMonthsNotesPage - Starting to load grades from master data');
-      
-      // First try to get from teacher master data (master_teacher collection)
-      final masterData = await MasterDataService.getTeacherMasterData();
-      print('📝 [DEBUG] PastMonthsNotesPage - Master data result: ${masterData != null ? "Found" : "Not found"}');
-      
-      if (masterData != null && masterData.grades.isNotEmpty) {
-        print('📝 [DEBUG] PastMonthsNotesPage - Master data grades: ${masterData.grades}');
-        
-        setState(() {
-          _grades = masterData.grades;
-          _isLoadingGrades = false;
-        });
-        print('✅ [DEBUG] PastMonthsNotesPage - Successfully loaded ${_grades.length} grades from master_teacher collection');
-        print('✅ [DEBUG] PastMonthsNotesPage - Grades: $_grades');
-        return;
-      }
-      
-      // Fallback to Grade entities from master data
-      print('📝 [DEBUG] PastMonthsNotesPage - Trying fallback: loading from Grade entities');
-      final gradeEntities = await MasterDataService.getGrades();
-      print('📝 [DEBUG] PastMonthsNotesPage - Grade entities count: ${gradeEntities.length}');
-      
-      if (gradeEntities.isNotEmpty) {
-        final gradeNames = gradeEntities.map((g) => g.name).toList();
-        print('📝 [DEBUG] PastMonthsNotesPage - Grade entity names: $gradeNames');
-        
-        setState(() {
-          _grades = gradeNames;
-          _isLoadingGrades = false;
-        });
-        print('⚠️ [DEBUG] PastMonthsNotesPage - Loaded ${_grades.length} grades from Grade entities (fallback)');
-        print('⚠️ [DEBUG] PastMonthsNotesPage - Grades: $_grades');
-        print('⚠️ [WARNING] PastMonthsNotesPage - Using fallback grades collection instead of master_teacher!');
-        return;
-      }
-      
-      // If no grades found, set empty list
-      setState(() {
-        _grades = [];
-        _isLoadingGrades = false;
-      });
-      print('❌ [DEBUG] PastMonthsNotesPage - No grades found in master data');
-    } catch (e) {
-      print('❌ [DEBUG] PastMonthsNotesPage - Error loading grades: $e');
-      setState(() {
-        _gradesError = e.toString();
-        _grades = [];
-        _isLoadingGrades = false;
-      });
-    }
+  String _subjectDisplayName(Map<String, dynamic> classSubjectItem) {
+    final subjectId = classSubjectItem['subject_id']?.toString() ??
+        classSubjectItem['subjectId']?.toString() ??
+        classSubjectItem['subject']?.toString();
+    if (subjectId == null || subjectId.isEmpty) return '—';
+    return _subjectIdToName[subjectId] ?? '—';
   }
 
-  Future<void> _loadSubjects() async {
-    setState(() {
-      _isLoadingSubjects = true;
-      _subjectsError = null;
-    });
-
-    try {
-      print('📝 [DEBUG] PastMonthsNotesPage - Starting to load subjects from master data');
-      
-      // First try to get from teacher master data (master_teacher collection)
-      final masterData = await MasterDataService.getTeacherMasterData();
-      print('📝 [DEBUG] PastMonthsNotesPage - Master data result: ${masterData != null ? "Found" : "Not found"}');
-      
-      if (masterData != null && masterData.subjects.isNotEmpty) {
-        print('📝 [DEBUG] PastMonthsNotesPage - Master data subjects: ${masterData.subjects}');
-        
-        // Convert subject strings to Subject entities
-        final subjects = masterData.subjects.map((subjectName) {
-          return Subject(
-            id: subjectName,
-            subject: subjectName,
-            teacherId: masterData.teacherId,
-          );
-        }).toList();
-        
-        setState(() {
-          _subjects = subjects;
-          _isLoadingSubjects = false;
-        });
-        print('✅ [DEBUG] PastMonthsNotesPage - Successfully loaded ${_subjects.length} subjects from master_teacher collection');
-        return;
+  String? _getSelectedClassSubjectId() {
+    if (_selectedSubject == null || _selectedSubject!.isEmpty) return null;
+    for (final item in _classSubjectsForSelectedClass) {
+      if (_subjectDisplayName(item) == _selectedSubject) {
+        final id = item['id']?.toString();
+        if (id != null && id.isNotEmpty) return id;
+        return null;
       }
-      
-      // Fallback to Subject entities from master data
-      print('📝 [DEBUG] PastMonthsNotesPage - Trying fallback: loading from Subject entities');
-      final subjectEntities = await MasterDataService.getSubjects();
-      print('📝 [DEBUG] PastMonthsNotesPage - Subject entities count: ${subjectEntities.length}');
-      
-      if (subjectEntities.isNotEmpty) {
-        setState(() {
-          _subjects = subjectEntities;
-          _isLoadingSubjects = false;
-        });
-        print('⚠️ [DEBUG] PastMonthsNotesPage - Loaded ${_subjects.length} subjects from Subject entities (fallback)');
-        print('⚠️ [WARNING] PastMonthsNotesPage - Using fallback subjects collection instead of master_teacher!');
-        return;
-      }
-      
-      // If no subjects found, set empty list
-      setState(() {
-        _subjects = [];
-        _isLoadingSubjects = false;
-      });
-      print('❌ [DEBUG] PastMonthsNotesPage - No subjects found in master data');
-    } catch (e) {
-      print('❌ [DEBUG] PastMonthsNotesPage - Error loading subjects: $e');
-      setState(() {
-        _subjectsError = e.toString();
-        _subjects = [];
-        _isLoadingSubjects = false;
-      });
     }
+    return null;
+  }
+
+  static bool _isPaidStatus(String status) {
+    final s = status.toLowerCase();
+    return s == 'paid' || s == 'approved' || s == 'completed';
+  }
+
+  bool _hasPaymentForSelection() {
+    if (!paymentsLoaded || _selectedGrade == null || _selectedSubject == null) return false;
+    final now = DateTime.now();
+    final grade = _selectedGrade!;
+    final subject = _selectedSubject!;
+    final classSubjectId = _getSelectedClassSubjectId();
+    for (final p in currentMonthPayments) {
+      if (p is! Payment) continue;
+      if (p.month != now.month || p.year != now.year) continue;
+      if (!_isPaidStatus(p.status)) continue;
+      if (classSubjectId != null && p.classSubjectId != null && p.classSubjectId == classSubjectId) return true;
+      if (p.grade == grade && p.subject == subject) return true;
+    }
+    return false;
+  }
+
+  Set<String> _allowedClassSubjectIds() {
+    final allowed = <String>{};
+    for (final doc in _classSubjectsForSelectedClass) {
+      if (_selectedSubject != null && _selectedSubject!.isNotEmpty) {
+        if (_subjectDisplayName(doc) != _selectedSubject) continue;
+      }
+      final id = doc['id']?.toString();
+      if (id != null && id.isNotEmpty) allowed.add(id);
+    }
+    return allowed;
+  }
+
+  bool _isFreeAndForSelectedClass(Map<String, dynamic> item, Set<String> allowedIds) {
+    final access = (item['accessLevel'] ?? item['access_level'] ?? '').toString().trim().toLowerCase();
+    if (access.isNotEmpty && access != 'free') return false;
+    final csId = item['class_subject_id']?.toString()?.trim();
+    if (csId == null || csId.isEmpty) return false;
+    return allowedIds.contains(csId);
+  }
+
+  bool _isPaidAndForSelectedClass(Map<String, dynamic> item, Set<String> allowedIds) {
+    final access = (item['accessLevel'] ?? item['access_level'] ?? '').toString().trim().toLowerCase();
+    if (access == 'free') return false;
+    final csId = item['class_subject_id']?.toString()?.trim();
+    if (csId == null || csId.isEmpty) return false;
+    return allowedIds.contains(csId);
   }
 
   Future<void> _loadPayments() async {
@@ -181,11 +130,8 @@ class _PastMonthsNotesPageState extends State<PastMonthsNotesPage> {
       }
 
       final getUserPayments = sl<GetUserPayments>();
-      final teacherId = user.teacherId ?? '';
-      final params = GetUserPaymentsParams(
-        userId: user.userId,
-        teacherId: teacherId.isNotEmpty ? teacherId : null,
-      );
+      final schoolId = user.teacherId ?? '';
+      final params = GetUserPaymentsParams(userId: user.userId, schoolId: schoolId);
       final result = await getUserPayments(params);
 
       result.fold(
@@ -193,33 +139,36 @@ class _PastMonthsNotesPageState extends State<PastMonthsNotesPage> {
           setState(() {
             _error = failure.message;
             _isLoading = false;
+            paymentsLoaded = false;
           });
         },
         (payments) {
-          final currentYear = DateTime.now().year;
-          // Filter payments for current year with completed/approved status
-          // Also filter by selected subject and grade if they are selected
-          // Extract grade number from selected grade (e.g., "Grade 1" -> "1")
-          final selectedGradeNumber = _selectedGrade != null
+          final now = DateTime.now();
+          final currentYear = now.year;
+          final currentMonth = now.month;
+          final selectedGradeNumber = _selectedGrade != null && _selectedGrade!.isNotEmpty
               ? _selectedGrade!.replaceAll(RegExp(r'[^0-9]'), '')
               : null;
-          
+
+          final currentMonthList = payments.where((p) {
+            if (p.month != currentMonth || p.year != currentYear) return false;
+            return _isPaidStatus(p.status);
+          }).toList();
+
           final filteredPayments = payments.where((p) {
             final matchesYear = p.year == currentYear;
-            final matchesStatus = p.status == 'approved';
+            final matchesStatus = _isPaidStatus(p.status);
             final matchesSubject = _selectedSubject == null || p.subject == _selectedSubject;
-            // Extract grade number from payment grade for comparison
             final paymentGradeNumber = p.grade.replaceAll(RegExp(r'[^0-9]'), '');
             final matchesGrade = selectedGradeNumber == null || paymentGradeNumber == selectedGradeNumber;
             return matchesYear && matchesStatus && matchesSubject && matchesGrade;
           }).toList();
-          
-          final paidMonths = filteredPayments
-              .map((p) => p.month)
-              .toSet()
-              .toList();
+
+          final paidMonths = filteredPayments.map((p) => p.month).toSet().toList();
 
           setState(() {
+            currentMonthPayments = currentMonthList;
+            paymentsLoaded = true;
             _paidMonths = paidMonths;
             _isLoading = false;
           });
@@ -268,37 +217,196 @@ class _PastMonthsNotesPageState extends State<PastMonthsNotesPage> {
 
     if (user == null || _selectedGrade == null || _selectedSubject == null) return;
 
+    final schoolId = user.teacherId ?? '';
+    if (schoolId.isEmpty) return;
+
     if (_isMonthPaid(month)) {
-      // Navigate to NotesAssignmentsPage with grade and month
-      // Extract grade number from "Grade X" format if needed
-      String? gradeValue = _selectedGrade;
-      if (gradeValue != null && gradeValue.contains('Grade')) {
-        gradeValue = gradeValue.replaceAll(RegExp(r'[^0-9]'), '');
-      }
-      
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => NotesAssignmentsPage(
-            initialGrade: gradeValue,
-            initialMonth: month,
+          builder: (context) => PastMonthNotesListPage(
+            schoolId: schoolId,
+            grade: _selectedGrade!,
+            month: month,
+            subject: _selectedSubject!,
+            classSubjectsForSelectedClass: _classSubjectsForSelectedClass,
+            subjectIdToName: _subjectIdToName,
           ),
         ),
       );
     } else {
-      // Navigate to Payment Page
-      final userId = user.userId;
-      final teacherId = user.teacherId ?? '';
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => BlocProvider(
             create: (_) => sl<PaymentBloc>(),
-            child: PaymentPage(userId: userId, teacherId: teacherId),
+            child: PaymentPage(
+              userId: user.userId,
+              schoolId: schoolId,
+              embedInHomeShell: widget.embedInHomeShell,
+            ),
           ),
         ),
       );
     }
+  }
+
+  /// Loads PDF notes from local DB (school_content_pdf_notes, same as FreeVideosPage Notes tab). Shows free + paid when has payment.
+  Widget _buildNotesFromCache(BuildContext context, String schoolId) {
+    final allowedIds = _allowedClassSubjectIds();
+    final hasPayment = _hasPaymentForSelection();
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: sl<SchoolCacheService>().getSchoolContentPdfNotes(schoolId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final all = snapshot.data ?? [];
+        final freeList = all.where((item) => _isFreeAndForSelectedClass(item, allowedIds)).toList();
+        final paidList = hasPayment
+            ? all.where((item) => _isPaidAndForSelectedClass(item, allowedIds)).toList()
+            : <Map<String, dynamic>>[];
+        final combined = [...freeList, ...paidList];
+        if (combined.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.description, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text('No notes for this class/subject'),
+              ],
+            ),
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: combined.length,
+          itemBuilder: (context, index) {
+            final note = combined[index];
+            final isFree = _isFreeAndForSelectedClass(note, allowedIds);
+            return _buildNoteListItem(context, note, isFree: isFree);
+          },
+        );
+      },
+    );
+  }
+
+  /// Same notes cell design as FreeVideosPage: card with Grade pill, title, description, View & Download buttons.
+  /// Uses pdf_notes DB: title, description, pdf_url, grade. Optional Free/Paid badge for PastMonthsNotesPage.
+  Widget _buildNoteListItem(BuildContext context, Map<String, dynamic> note, {bool isFree = true}) {
+    final title = note['title']?.toString().trim() ?? 'Note';
+    final description = note['description']?.toString().trim() ?? '';
+    final pdfUrl = (note['pdf_url'] ?? note['file_url'])?.toString().trim() ?? '';
+    final grade = note['grade']?.toString().trim();
+    final gradeNum = grade?.replaceAll(RegExp(r'[^0-9]'), '')?.trim() ?? '';
+    final displayGradeLabel = gradeNum.isNotEmpty
+        ? 'Grade: $gradeNum'
+        : (grade?.isNotEmpty == true ? 'Grade: ${grade!.replaceFirst(RegExp(r'^Grade\s*', caseSensitive: false), '').trim()}' : '');
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      shadowColor: Colors.black12,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                if (displayGradeLabel.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      displayGradeLabel,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
+                  ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isFree ? Colors.green.shade50 : Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    isFree ? 'Free' : 'Paid',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isFree ? Colors.green.shade700 : Colors.orange.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (displayGradeLabel.isNotEmpty) const SizedBox(height: 10),
+            if (displayGradeLabel.isEmpty) const SizedBox(height: 4),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (description.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                description,
+                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      if (pdfUrl.isNotEmpty) {
+                        launchUrl(Uri.parse(pdfUrl), mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    icon: const Icon(Icons.visibility, size: 20),
+                    label: const Text('View', style: TextStyle(fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      if (pdfUrl.isNotEmpty) {
+                        launchUrl(Uri.parse(pdfUrl), mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    icon: const Icon(Icons.download, size: 20),
+                    label: const Text('Download', style: TextStyle(fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -308,11 +416,13 @@ class _PastMonthsNotesPageState extends State<PastMonthsNotesPage> {
 
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('පන්තියේ සටහන් හා ප්‍රශ්න පත්‍ර'),
-          backgroundColor: Colors.orange,
-          foregroundColor: Colors.white,
-        ),
+        appBar: widget.embedInHomeShell
+            ? null
+            : AppBar(
+                title: const Text('පසුගිය මාසවල නිබන්ධන'),
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
         body: const Center(
           child: Text('Please login to view past months notes'),
         ),
@@ -320,14 +430,16 @@ class _PastMonthsNotesPageState extends State<PastMonthsNotesPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('පන්තියේ සටහන් හා ප්‍රශ්න පත්‍ර'),
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
-      ),
-      body: _isLoading || _isLoadingSubjects
+      appBar: widget.embedInHomeShell
+          ? null
+          : AppBar(
+              title: const Text('පසුගිය මාසවල නිබන්ධන'),
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null || _subjectsError != null
+          : _error != null
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -335,133 +447,215 @@ class _PastMonthsNotesPageState extends State<PastMonthsNotesPage> {
                       Icon(Icons.error_outline, size: 64, color: Colors.red),
                       const SizedBox(height: 16),
                       Text(
-                        'Error: ${_error ?? _subjectsError}',
+                        'Error: $_error',
                         style: const TextStyle(color: Colors.red),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
-                        onPressed: () {
-                          _loadPayments();
-                          _loadSubjects();
-                        },
+                        onPressed: _loadPayments,
                         child: const Text('Retry'),
                       ),
                     ],
                   ),
                 )
               : RefreshIndicator(
-                  onRefresh: () async {
-                    await Future.wait([
-                      _loadPayments(),
-                      _loadSubjects(),
-                    ]);
-                  },
+                  onRefresh: _loadPayments,
                   child: Column(
                     children: [
-                      // Grade and Subjects section at the top
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        color: Colors.grey[100],
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Grade dropdown
-                            const Text(
-                              'Select Grade:',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            DropdownButtonFormField<String>(
-                              value: _selectedGrade,
-                              decoration: InputDecoration(
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                filled: true,
-                                fillColor: Colors.white,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                errorText: _gradesError != null ? _gradesError : null,
-                              ),
-                              hint: const Text('Select Grade'),
-                              items: _isLoadingGrades
-                                  ? [
-                                      const DropdownMenuItem<String>(
-                                        value: null,
-                                        child: Text('Loading grades...'),
-                                      )
-                                    ]
-                                  : _grades.isEmpty
-                                      ? [
-                                          const DropdownMenuItem<String>(
-                                            value: null,
-                                            child: Text('No grades available'),
-                                          )
-                                        ]
-                                      : _grades.map((grade) {
-                                          final gradeValue = grade.contains('Grade') ? grade : 'Grade $grade';
-                                          return DropdownMenuItem<String>(
-                                            value: gradeValue,
-                                            child: Text(gradeValue),
-                                          );
-                                        }).toList(),
-                              onChanged: _isLoadingGrades || _grades.isEmpty
-                                  ? null
-                                  : (value) {
-                                      setState(() {
-                                        _selectedGrade = value;
-                                        // Clear subject selection when grade changes
-                                        _selectedSubject = null;
-                                      });
-                                      // Reload payments when grade selection changes
+                      SingleChildScrollView(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              GradeSelector(
+                                value: _selectedGrade,
+                                label: 'පන්තිය',
+                                hint: 'පන්තිය තෝරන්න',
+                                onGradeSelected: (value) async {
+                                  setState(() {
+                                    _selectedGrade = value;
+                                    _selectedClassName = null;
+                                    _selectedClassDoc = null;
+                                    _selectedSubject = null;
+                                    _classesForGrade = [];
+                                    _classSubjectsForSelectedClass = [];
+                                    _subjectIdToName = {};
+                                  });
+                                  if (value != null && value.isNotEmpty) {
+                                    final schoolId = user!.teacherId ?? '';
+                                    if (schoolId.isEmpty) {
                                       _loadPayments();
-                                    },
-                            ),
-                            const SizedBox(height: 16),
-                            // Subjects section
-                            if (_subjects.isNotEmpty) ...[
-                              const Text(
-                                'Select Subject:',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: _subjects.map((subject) {
-                                  final isSelected = _selectedSubject == subject.subject;
-                                  return FilterChip(
-                                    label: Text(subject.subject),
-                                    selected: isSelected,
-                                    onSelected: _selectedGrade != null
-                                        ? (selected) {
-                                            setState(() {
-                                              _selectedSubject = selected ? subject.subject : null;
-                                            });
-                                            // Reload payments when subject selection changes
-                                            _loadPayments();
+                                      return;
+                                    }
+                                    setState(() => _loadingClasses = true);
+                                    final cache = sl<SchoolCacheService>();
+                                    final list = await cache.getClassesByGradeNumber(schoolId, value);
+                                    if (mounted) {
+                                      setState(() {
+                                        _classesForGrade = list;
+                                        _loadingClasses = false;
+                                        if (list.length == 1) {
+                                          _selectedClassDoc = list.first;
+                                          _selectedClassName = SchoolCacheService.classDisplayName(list.first, value);
+                                        }
+                                      });
+                                      if (list.length == 1 && list.first.isNotEmpty && schoolId.isNotEmpty) {
+                                        setState(() => _loadingClassSubjects = true);
+                                        final cache = sl<SchoolCacheService>();
+                                        final doc = list.first;
+                                        final classId = doc['id']?.toString() ?? '';
+                                        final cName = SchoolCacheService.classDisplayName(doc, value);
+                                        final subjects = await cache.getClassSubjectsForClass(schoolId, classId, cName);
+                                        final subjectDocs = await cache.getSubjects(schoolId);
+                                        final idToName = <String, String>{};
+                                        for (final s in subjectDocs) {
+                                          final id = s['id']?.toString();
+                                          if (id == null) continue;
+                                          final name = s['subject'] ?? s['name'] ?? s['title'];
+                                          if (name != null && name.toString().trim().isNotEmpty) {
+                                            idToName[id] = name.toString().trim();
                                           }
-                                        : null,
-                                    selectedColor: Colors.orange[200],
-                                    checkmarkColor: Colors.orange[900],
-                                    labelStyle: TextStyle(
-                                      color: isSelected ? Colors.orange[900] : Colors.black87,
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                    ),
-                                  );
-                                }).toList(),
+                                        }
+                                        if (mounted) {
+                                          setState(() {
+                                            _classSubjectsForSelectedClass = subjects;
+                                            _subjectIdToName = idToName;
+                                            _loadingClassSubjects = false;
+                                          });
+                                        }
+                                      }
+                                      _loadPayments();
+                                    }
+                                  } else {
+                                    _loadPayments();
+                                  }
+                                },
                               ),
+                              if (_selectedGrade != null && _selectedGrade!.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                if (_loadingClasses)
+                                  const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
+                                else if (_classesForGrade.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    child: Text(
+                                      'මෙම පන්තිය සඳහා පන්ති නොමැත',
+                                      style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                                    ),
+                                  )
+                                else
+                                  DropdownButtonFormField<String>(
+                                    value: _selectedClassName != null &&
+                                            _classesForGrade.any((c) =>
+                                                SchoolCacheService.classDisplayName(c, _selectedGrade!) == _selectedClassName)
+                                        ? _selectedClassName
+                                        : null,
+                                    decoration: const InputDecoration(
+                                      labelText: 'පන්තියේ නම',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    hint: const Text('පන්තිය තෝරන්න'),
+                                    items: _classesForGrade.map((c) {
+                                      final name = SchoolCacheService.classDisplayName(c, _selectedGrade!);
+                                      return DropdownMenuItem<String>(value: name, child: Text(name));
+                                    }).toList(),
+                                    onChanged: (value) async {
+                                      final className = value ?? '';
+                                      final schoolId = user!.teacherId ?? '';
+                                      final doc = _classesForGrade.cast<Map<String, dynamic>>().firstWhere(
+                                            (c) => SchoolCacheService.classDisplayName(c, _selectedGrade!) == className,
+                                            orElse: () => <String, dynamic>{},
+                                          );
+                                      setState(() {
+                                        _selectedClassName = className;
+                                        _selectedClassDoc = doc.isNotEmpty ? doc : null;
+                                        _selectedSubject = null;
+                                        _classSubjectsForSelectedClass = [];
+                                        _subjectIdToName = {};
+                                      });
+                                      if (doc.isNotEmpty && schoolId.isNotEmpty) {
+                                        setState(() => _loadingClassSubjects = true);
+                                        final cache = sl<SchoolCacheService>();
+                                        final classId = doc['id']?.toString() ?? '';
+                                        final list = await cache.getClassSubjectsForClass(schoolId, classId, className);
+                                        final subjectDocs = await cache.getSubjects(schoolId);
+                                        final idToName = <String, String>{};
+                                        for (final s in subjectDocs) {
+                                          final id = s['id']?.toString();
+                                          if (id == null) continue;
+                                          final name = s['subject'] ?? s['name'] ?? s['title'];
+                                          if (name != null && name.toString().trim().isNotEmpty) {
+                                            idToName[id] = name.toString().trim();
+                                          }
+                                        }
+                                        if (mounted) {
+                                          setState(() {
+                                            _classSubjectsForSelectedClass = list;
+                                            _subjectIdToName = idToName;
+                                            _loadingClassSubjects = false;
+                                          });
+                                          _loadPayments();
+                                        }
+                                      } else {
+                                        _loadPayments();
+                                      }
+                                    },
+                                  ),
+                                const SizedBox(height: 12),
+                              ],
+                              if (_selectedClassDoc != null && _selectedClassName != null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'විෂය තෝරන්න',
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                        color: Theme.of(context).colorScheme.primary,
+                                      ),
+                                ),
+                                const SizedBox(height: 8),
+                                if (_loadingClassSubjects)
+                                  const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
+                                else if (_classSubjectsForSelectedClass.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    child: Text(
+                                      'මෙම පන්තිය සඳහා විෂය නොමැත',
+                                      style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                                    ),
+                                  )
+                                else
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: _classSubjectsForSelectedClass.map((item) {
+                                      final name = _subjectDisplayName(item);
+                                      final isSelected = _selectedSubject == name;
+                                      return FilterChip(
+                                        label: Text(name),
+                                        selected: isSelected,
+                                        onSelected: (_) {
+                                          setState(() {
+                                            _selectedSubject = isSelected ? null : name;
+                                          });
+                                          _loadPayments();
+                                        },
+                                        selectedColor: Colors.orange[200],
+                                        checkmarkColor: Colors.orange[900],
+                                        labelStyle: TextStyle(
+                                          color: isSelected ? Colors.orange[900] : Colors.black87,
+                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                const SizedBox(height: 16),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                       ),
-                      // Months list - only show when both grade and subject are selected
+                      // Month list (same as PastMonthsRecordingsPage) - show after grade + subject selected
                       Expanded(
                         child: _selectedGrade == null || _selectedSubject == null
                             ? Center(
@@ -476,8 +670,8 @@ class _PastMonthsNotesPageState extends State<PastMonthsNotesPage> {
                                     const SizedBox(height: 16),
                                     Text(
                                       _selectedGrade == null
-                                          ? 'නිබන්ධන ලබාගැනීමට පන්තිය හා විෂය තෝරන්න'
-                                          : 'නිබන්ධන ලබාගැනීමට පන්තිය හා විෂය තෝරන්න',
+                                          ? 'Please select a grade to view months'
+                                          : 'Please select a subject to view months',
                                       style: TextStyle(
                                         fontSize: 16,
                                         color: Colors.grey[600],
@@ -487,95 +681,96 @@ class _PastMonthsNotesPageState extends State<PastMonthsNotesPage> {
                                   ],
                                 ),
                               )
-                            : ListView.builder(
-                                padding: const EdgeInsets.all(16),
-                                itemCount: _getMonthsList().length,
-                                itemBuilder: (context, index) {
-                                  final month = _getMonthsList()[index];
-                                  final monthName = _getMonthName(month);
-                                  final isPaid = _isMonthPaid(month);
-                                  final currentYear = DateTime.now().year;
-
-                                  return Card(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    elevation: 4,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: InkWell(
-                                      onTap: () => _handleMonthTap(month, context),
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              width: 50,
-                                              height: 50,
-                                              decoration: BoxDecoration(
-                                                color: isPaid ? Colors.green : Colors.orange,
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: Center(
-                                                child: Text(
-                                                  month.toString(),
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 16),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    monthName,
-                                                    style: const TextStyle(
-                                                      fontSize: 18,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    '$currentYear',
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      color: Colors.grey[600],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.end,
+                            : (!paymentsLoaded)
+                                ? const Center(child: Text('Loading your payment data...'))
+                                : ListView.builder(
+                                    padding: const EdgeInsets.all(16),
+                                    itemCount: _getMonthsList().length,
+                                    itemBuilder: (context, index) {
+                                      final month = _getMonthsList()[index];
+                                      final monthName = _getMonthName(month);
+                                      final isPaid = _isMonthPaid(month);
+                                      final currentYear = DateTime.now().year;
+                                      return Card(
+                                        margin: const EdgeInsets.only(bottom: 12),
+                                        elevation: 4,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: InkWell(
+                                          onTap: () => _handleMonthTap(month, context),
+                                          borderRadius: BorderRadius.circular(12),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(16),
+                                            child: Row(
                                               children: [
-                                                Icon(
-                                                  isPaid ? Icons.note : Icons.payment,
-                                                  color: isPaid ? Colors.green : Colors.orange,
-                                                  size: 24,
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  isPaid ? 'View notes' : 'Pay & view notes',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
+                                                Container(
+                                                  width: 50,
+                                                  height: 50,
+                                                  decoration: BoxDecoration(
                                                     color: isPaid ? Colors.green : Colors.orange,
-                                                    fontWeight: FontWeight.w600,
+                                                    borderRadius: BorderRadius.circular(8),
                                                   ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      month.toString(),
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 20,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 16),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        monthName,
+                                                        style: const TextStyle(
+                                                          fontSize: 18,
+                                                          fontWeight: FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        '$currentYear',
+                                                        style: TextStyle(
+                                                          fontSize: 14,
+                                                          color: Colors.grey[600],
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                                  children: [
+                                                    Icon(
+                                                      isPaid ? Icons.description : Icons.payment,
+                                                      color: isPaid ? Colors.green : Colors.orange,
+                                                      size: 24,
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      isPaid ? 'View notes' : 'Pay & view notes',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: isPaid ? Colors.green : Colors.orange,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ],
                                             ),
-                                          ],
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
+                                      );
+                                    },
+                                  ),
                       ),
                     ],
                   ),

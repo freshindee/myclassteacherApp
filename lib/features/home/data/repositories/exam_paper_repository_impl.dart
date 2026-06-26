@@ -20,17 +20,18 @@ class ExamPaperRepositoryImpl implements ExamPaperRepository {
     required String grade,
     required int subjectId,
     int? chapterId,
+    String? subjectIdStr,
   }) async {
     print('📚 [REPOSITORY] ExamPaperRepository.getExamPapers called');
-    print('📚 [REPOSITORY] - grade: $grade, subjectId: $subjectId, chapterId: $chapterId');
-    
+    print('📚 [REPOSITORY] - grade: $grade, subjectId: $subjectId, chapterId: $chapterId, subjectIdStr: $subjectIdStr');
+
     if (await networkInfo.isConnected) {
       try {
-        print('📚 [REPOSITORY] Network connected, calling remote data source...');
         final paperModels = await remoteDataSource.getExamPapers(
           grade: grade,
           subjectId: subjectId,
           chapterId: chapterId,
+          subjectIdStr: subjectIdStr,
         );
         print('📚 [REPOSITORY] Successfully fetched ${paperModels.length} exam paper models from remote data source');
         

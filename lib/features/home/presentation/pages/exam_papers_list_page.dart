@@ -10,6 +10,8 @@ class ExamPapersListPage extends StatefulWidget {
   final int? chapterId;
   final String subjectName;
   final String? chapterName;
+  /// Paper table uses string subject_id (e.g. class_subject id). When set, sent to API for listing papers.
+  final String? classSubjectId;
 
   const ExamPapersListPage({
     super.key,
@@ -18,6 +20,7 @@ class ExamPapersListPage extends StatefulWidget {
     this.chapterId,
     required this.subjectName,
     this.chapterName,
+    this.classSubjectId,
   });
 
   @override
@@ -51,6 +54,7 @@ class _ExamPapersListPageState extends State<ExamPapersListPage> {
         grade: widget.grade,
         subjectId: widget.subjectId,
         chapterId: widget.chapterId,
+        subjectIdStr: widget.classSubjectId,
       ));
 
       result.fold(

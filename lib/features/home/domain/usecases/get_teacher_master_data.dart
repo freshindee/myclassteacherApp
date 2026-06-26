@@ -10,8 +10,8 @@ class GetTeacherMasterData implements UseCase<TeacherMasterData?, String> {
   GetTeacherMasterData(this.repository);
 
   @override
-  Future<Either<Failure, TeacherMasterData?>> call(String teacherId) async {
-    return await repository.getTeacherMasterData(teacherId);
+  Future<Either<Failure, TeacherMasterData?>> call(String schoolId) async {
+    return await repository.getTeacherMasterData(schoolId);
   }
 }
 

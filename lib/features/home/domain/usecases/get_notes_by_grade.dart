@@ -10,13 +10,13 @@ class GetNotesByGrade implements UseCase<List<Note>, GetNotesByGradeParams> {
   
   @override
   Future<Either<Failure, List<Note>>> call(GetNotesByGradeParams params) async {
-    return await repository.getNotesByGrade(params.teacherId, params.grade);
+    return await repository.getNotesByGrade(params.schoolId, params.grade);
   }
 }
 
 class GetNotesByGradeParams {
-  final String teacherId;
+  final String schoolId;
   final String grade;
   
-  GetNotesByGradeParams({required this.teacherId, required this.grade});
+  GetNotesByGradeParams({required this.schoolId, required this.grade});
 } 

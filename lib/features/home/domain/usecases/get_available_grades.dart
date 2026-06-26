@@ -8,7 +8,7 @@ class GetAvailableGrades implements UseCase<List<String>, String> {
   GetAvailableGrades(this.repository);
   
   @override
-  Future<Either<Failure, List<String>>> call(String teacherId) async {
-    return await repository.getAvailableGrades(teacherId);
+  Future<Either<Failure, List<String>>> call(String schoolId) async {
+    return await repository.getAvailableGrades(schoolId);
   }
 } 

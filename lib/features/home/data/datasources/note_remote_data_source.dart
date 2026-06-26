@@ -2,9 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/note_model.dart';
 
 abstract class NoteRemoteDataSource {
-  Future<List<NoteModel>> getNotes(String teacherId);
-  Future<List<NoteModel>> getNotesByGrade(String teacherId, String grade);
-  Future<List<NoteModel>> getFreeNotes(String teacherId, {String? grade});
+  Future<List<NoteModel>> getNotes(String schoolId);
+  Future<List<NoteModel>> getNotesByGrade(String schoolId, String grade);
 }
 
 class NoteRemoteDataSourceImpl implements NoteRemoteDataSource {
@@ -13,16 +12,17 @@ class NoteRemoteDataSourceImpl implements NoteRemoteDataSource {
   NoteRemoteDataSourceImpl({required this.firestore});
 
   @override
-  Future<List<NoteModel>> getNotes(String teacherId) async {
+  Future<List<NoteModel>> getNotes(String schoolId) async {
     try {
-      print('📝 [API REQUEST] NoteDataSource.getNotes called with teacherId: $teacherId');
+      print('📝 [API REQUEST] NoteDataSource.getNotes called with schoolId: $schoolId');
       
       final querySnapshot = await firestore
+          .collection('schools')
+          .doc(schoolId)
           .collection('notes')
-          .where('teacherId', isEqualTo: teacherId)
           .get();
       
-      print('📝 [API RESPONSE] Found ${querySnapshot.docs.length} note documents for teacherId: $teacherId');
+      print('📝 [API RESPONSE] Found ${querySnapshot.docs.length} note documents for schoolId: $schoolId');
       
       final notes = querySnapshot.docs.map((doc) {
         final data = doc.data();
@@ -42,17 +42,18 @@ class NoteRemoteDataSourceImpl implements NoteRemoteDataSource {
   }
 
   @override
-  Future<List<NoteModel>> getNotesByGrade(String teacherId, String grade) async {
+  Future<List<NoteModel>> getNotesByGrade(String schoolId, String grade) async {
     try {
-      print('📝 [API REQUEST] NoteDataSource.getNotesByGrade called with teacherId: $teacherId, grade: $grade');
+      print('📝 [API REQUEST] NoteDataSource.getNotesByGrade called with schoolId: $schoolId, grade: $grade');
       
       final querySnapshot = await firestore
+          .collection('schools')
+          .doc(schoolId)
           .collection('notes')
-          .where('teacherId', isEqualTo: teacherId)
           .where('grade', isEqualTo: grade)
           .get();
       
-      print('📝 [API RESPONSE] Found ${querySnapshot.docs.length} note documents for teacherId: $teacherId, grade: $grade');
+      print('📝 [API RESPONSE] Found ${querySnapshot.docs.length} note documents for schoolId: $schoolId, grade: $grade');
       
       final notes = querySnapshot.docs.map((doc) {
         final data = doc.data();
@@ -68,45 +69,6 @@ class NoteRemoteDataSourceImpl implements NoteRemoteDataSource {
     } catch (e) {
       print('📝 [API ERROR] Error fetching notes by grade: $e');
       throw Exception('Failed to fetch notes by grade: $e');
-    }
-  }
-
-  @override
-  Future<List<NoteModel>> getFreeNotes(String teacherId, {String? grade}) async {
-    try {
-      print('📝 [API REQUEST] NoteDataSource.getFreeNotes called with teacherId: $teacherId (type: ${teacherId.runtimeType}), grade: $grade');
-      
-      // Use teacherId as string (database stores it as string "100103")
-      Query query = firestore
-          .collection('notes')
-          .where('teacherId', isEqualTo: teacherId)
-          .where('accessLevel', isEqualTo: 'free');
-      
-      // Add grade filter if provided
-      if (grade != null && grade.isNotEmpty) {
-        query = query.where('grade', isEqualTo: grade);
-        print('📝 [API REQUEST] Filtering by grade: $grade');
-      }
-      
-      print('📝 [API REQUEST] Executing query: teacherId="$teacherId", accessLevel="free", grade="$grade"');
-      final querySnapshot = await query.get();
-      
-      print('📝 [API RESPONSE] Found ${querySnapshot.docs.length} free note documents for teacherId: $teacherId');
-      
-      final notes = querySnapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        print('📝 [API RESPONSE] Free note document ${doc.id}: $data');
-        return NoteModel.fromJson({
-          'id': doc.id,
-          ...data,
-        });
-      }).toList();
-      
-      print('📝 [API RESPONSE] Successfully parsed ${notes.length} free notes');
-      return notes;
-    } catch (e) {
-      print('📝 [API ERROR] Error fetching free notes: $e');
-      throw Exception('Failed to fetch free notes: $e');
     }
   }
 } 

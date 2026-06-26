@@ -1,9 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/services/crypto_service.dart';
+import '../../../../core/utils/sri_lanka_phone_utils.dart';
 import '../models/user_model.dart';
+import '../models/sign_in_student_result_model.dart';
 
 abstract class AuthRemoteDataSource {
   Future<UserModel> signIn(String phoneNumber, String password, String teacherId);
+  /// Student login: path schools/{schoolId}/students, match by student_id or admission_no and password.
+  Future<SignInStudentResultModel> signInStudent(String schoolId, String username, String password);
   Future<UserModel> signUp(
     String phoneNumber, 
     String password,
@@ -172,6 +176,145 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       print('🔐 [API ERROR] Error during sign in: $e');
       throw Exception('Failed to sign in: ${e.toString()}');
     }
+  }
+
+  @override
+  Future<SignInStudentResultModel> signInStudent(String schoolId, String username, String password) async {
+    try {
+      final trimmedSchoolId = schoolId.trim();
+      final inputPassword = password.trim();
+      if (trimmedSchoolId.isEmpty || inputPassword.isEmpty) {
+        throw Exception('Invalid credentials');
+      }
+
+      // 1. Parent's mobile: Sri Lanka format → local 07…, then match students/{documentId} (10-digit or legacy 9-digit id).
+      // 2. Verify password from that document.
+      final local = SriLankaPhoneUtils.normalizeToLocalTenDigits(username);
+      if (local == null) {
+        print('🔐 [API ERROR] Invalid Sri Lanka mobile number');
+        throw Exception('Invalid credentials');
+      }
+      final candidates = SriLankaPhoneUtils.candidateStudentDocumentIds(local);
+      print('🔐 [API REQUEST] AuthDataSource.signInStudent schoolId: $trimmedSchoolId, local: $local, mobile candidates: $candidates');
+      final studentsRef = firestore.collection('schools').doc(trimmedSchoolId).collection('students');
+      final docSnapshot = await _findStudentDocument(studentsRef, local, candidates);
+      if (docSnapshot == null || !docSnapshot.exists) {
+        print('🔐 [API ERROR] No student found for schoolId: $trimmedSchoolId, local: $local, candidates: $candidates');
+        throw Exception('Invalid credentials');
+      }
+      final data = docSnapshot.data();
+      if (data == null) {
+        throw Exception('Invalid credentials');
+      }
+      final storedPassword = data['password']?.toString().trim();
+      if (storedPassword == null || storedPassword.isEmpty || storedPassword != inputPassword) {
+        print('🔐 [API ERROR] Invalid password for student ${docSnapshot.id}');
+        throw Exception('Invalid credentials');
+      }
+      final studentId = data['student_id'] as String? ?? docSnapshot.id;
+      final fullName = data['full_name'] as String? ?? '';
+      final address = data['address'] as String?;
+      final dateOfBirthStr = data['date_of_birth'] as String?;
+      DateTime? birthday;
+      if (dateOfBirthStr != null && dateOfBirthStr.isNotEmpty) {
+        try {
+          birthday = DateTime.parse(dateOfBirthStr);
+        } catch (_) {}
+      }
+      final userModel = UserModel(
+        userId: studentId,
+        phoneNumber: '',
+        password: password,
+        name: fullName,
+        birthday: birthday,
+        district: address,
+        teacherId: trimmedSchoolId,
+      );
+      // Full student document for local storage (exclude password). Convert Timestamp to string for JSON.
+      // firestore_document_id = students subcollection doc id (login username = parent phone digits only).
+      final rawDetails = Map<String, dynamic>.from(data)
+        ..['school_id'] = trimmedSchoolId
+        ..['firestore_document_id'] = docSnapshot.id
+        ..remove('password');
+
+      // Hero texts from parent school document: schools/{schoolId}
+      try {
+        final schoolSnap =
+            await firestore.collection('schools').doc(trimmedSchoolId).get();
+        final schoolData = schoolSnap.data();
+        final schoolName = schoolData?['school_name'];
+        final headingText = schoolData?['heading_text'];
+        final todayMessage = schoolData?['today_message'];
+        if (schoolName != null && schoolName.toString().trim().isNotEmpty) {
+          rawDetails['school_name'] = schoolName.toString().trim();
+        }
+        if (headingText != null && headingText.toString().trim().isNotEmpty) {
+          rawDetails['heading_text'] = headingText.toString().trim();
+        }
+        if (todayMessage != null && todayMessage.toString().trim().isNotEmpty) {
+          rawDetails['today_message'] = todayMessage.toString().trim();
+        }
+      } catch (e) {
+        print('🔐 [API WARN] signInStudent: could not load schools/$trimmedSchoolId hero fields: $e');
+      }
+
+      final studentDetails = _mapToJsonEncodable(rawDetails);
+      return SignInStudentResultModel(user: userModel, studentDetails: studentDetails);
+    } catch (e) {
+      print('🔐 [API ERROR] signInStudent: $e');
+      rethrow;
+    }
+  }
+
+  /// Finds a student by document id, then falls back to [parent_phone] / [student_id] fields.
+  Future<DocumentSnapshot<Map<String, dynamic>>?> _findStudentDocument(
+    CollectionReference<Map<String, dynamic>> studentsRef,
+    String localTenDigits,
+    List<String> documentIdCandidates,
+  ) async {
+    for (final documentId in documentIdCandidates) {
+      final snap = await studentsRef.doc(documentId).get();
+      if (snap.exists) return snap;
+    }
+
+    final lookupValues = <String>{
+      localTenDigits,
+      if (localTenDigits.length == 10) localTenDigits.substring(1),
+    };
+    for (final value in lookupValues) {
+      for (final field in const ['parent_phone', 'student_id']) {
+        final query = await studentsRef
+            .where(field, isEqualTo: value)
+            .limit(1)
+            .get();
+        if (query.docs.isNotEmpty) return query.docs.first;
+      }
+    }
+
+    return null;
+  }
+
+  /// Converts Firestore Timestamp (and nested values) to JSON-encodable form.
+  static Map<String, dynamic> _mapToJsonEncodable(Map<String, dynamic> map) {
+    return map.map((key, value) {
+      if (value is Timestamp) {
+        return MapEntry(key, value.toDate().toIso8601String());
+      }
+      if (value is Map) {
+        return MapEntry(key, _mapToJsonEncodable(Map<String, dynamic>.from(value)));
+      }
+      if (value is List) {
+        return MapEntry(
+          key,
+          value.map((e) {
+            if (e is Timestamp) return e.toDate().toIso8601String();
+            if (e is Map) return _mapToJsonEncodable(Map<String, dynamic>.from(e));
+            return e;
+          }).toList(),
+        );
+      }
+      return MapEntry(key, value);
+    });
   }
 
   @override

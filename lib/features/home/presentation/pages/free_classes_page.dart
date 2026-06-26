@@ -26,11 +26,11 @@ class FreeClassesPage extends StatelessWidget {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
         final user = snapshot.data;
-        final teacherId = user?.teacherId ?? '';
+        final schoolId = user?.teacherId ?? '';
         return BlocProvider(
           create: (context) => FreeClassesBloc(
             getAdvertisements: sl<GetAdvertisements>(),
-          )..add(LoadFreeVideos(teacherId)),
+          )..add(LoadFreeVideos(schoolId)),
           child: Scaffold(
             appBar: AppBar(
               title: const Text('Free Classes'),
@@ -64,7 +64,7 @@ class FreeClassesPage extends StatelessWidget {
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () {
-                            context.read<FreeClassesBloc>().add(LoadFreeVideos(teacherId));
+                            context.read<FreeClassesBloc>().add(LoadFreeVideos(schoolId));
                           },
                           child: const Text('Retry'),
                         ),

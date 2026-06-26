@@ -8,8 +8,8 @@ abstract class PaymentRemoteDataSource {
   Future<void> createPayment(Payment payment);
   Future<bool> hasAccess(String userId, String grade, String subject, int month, int year);
   Future<List<SubscriptionModel>> getUserSubscriptions(String userId);
-  Future<List<PaymentModel>> getUserPayments(String userId, {String? teacherId});
-  Future<PayAccountDetailsModel?> getPayAccountDetails(String teacherId);
+  Future<List<PaymentModel>> getUserPayments(String userId, {String? schoolId});
+  Future<PayAccountDetailsModel?> getPayAccountDetails(String schoolId);
 }
 
 class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
@@ -20,37 +20,89 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
   @override
   Future<void> createPayment(Payment payment) async {
     try {
-      print('🎬 PaymentDataSource: Creating payment in Firestore with data:');
-      print('🎬   - userId: ${payment.userId}');
-      print('🎬   - teacherId: ${payment.teacherId}');
-      print('🎬   - grade: ${payment.grade} (grade number only)');
-      print('🎬   - subject: ${payment.subject}');
-      print('🎬   - month: ${payment.month}');
-      print('🎬   - year: ${payment.year}');
-      print('🎬   - amount: ${payment.amount}');
-      print('🎬   - status: ${payment.status}');
-      
-      final paymentData = {
-        'userId': payment.userId,
-        'teacherId': payment.teacherId,
-        'grade': payment.grade, // This now contains only the grade number
-        'subject': payment.subject,
-        'month': payment.month,
-        'year': payment.year,
-        'amount': payment.amount,
-        'status': payment.status,
-        'createdAt': Timestamp.fromDate(payment.createdAt),
-        'completedAt': payment.completedAt != null ? Timestamp.fromDate(payment.completedAt!) : null,
-        'slipUrl': payment.slipUrl,
-      };
+      final schoolId = payment.teacherId;
+      final monthName = _monthName(payment.month);
+      print('🎬 PaymentDataSource: Saving to schools/$schoolId/payments');
 
-      print('🎬 PaymentDataSource: Saving payment data to Firestore: $paymentData');
-      await firestore.collection('payments').add(paymentData);
-      print('🎬 PaymentDataSource: Payment saved successfully to Firestore');
+      final paymentData = {
+        'student_id': payment.userId,
+        'month': monthName,
+        'amount': payment.amount,
+        'date': Timestamp.fromDate(payment.createdAt),
+        'grade': payment.grade,
+        'class_name': payment.className ?? '',
+        'class_subject_id': payment.classSubjectId ?? '',
+        'subject_name': payment.subject,
+        'slip_image_path': payment.slipUrl ?? '',
+        'status': 'pending',
+        'payment_method': 'bank',
+      };
+      final schoolRef = firestore.collection('schools').doc(schoolId);
+      final paymentsRef = schoolRef.collection('payments');
+      final paymentDocRef = paymentsRef.doc();
+
+      // Save payment + enrollment in a single batch (atomic).
+      final batch = firestore.batch();
+      batch.set(paymentDocRef, paymentData);
+
+      // Also save enrollment row when class_subject_id is available.
+      // Document id format: student_id_class_subject_id
+      final classSubjectId = (payment.classSubjectId ?? '').trim();
+      if (classSubjectId.isNotEmpty) {
+        String classId = '';
+        String subjectId = '';
+        try {
+          final classSubjectSnap =
+              await schoolRef.collection('class_subjects').doc(classSubjectId).get();
+          if (classSubjectSnap.exists) {
+            final data = classSubjectSnap.data() ?? {};
+            classId = (data['class_id'] ?? data['classId'] ?? data['class'] ?? '')
+                .toString()
+                .trim();
+            subjectId = (data['subject_id'] ?? data['subjectId'] ?? data['subject'] ?? '')
+                .toString()
+                .trim();
+          }
+        } catch (e) {
+          // Keep empty class/subject ids if lookup fails, but continue save.
+          print('⚠️ PaymentDataSource: class_subject lookup failed for $classSubjectId: $e');
+        }
+
+        final enrollmentDocId = '${payment.userId}_$classSubjectId';
+        final enrollmentData = {
+          'academic_model': 'subject_based',
+          'class_id': classId,
+          'class_subject_id': classSubjectId,
+          'enrolled_at': Timestamp.now(),
+          'enrolled_by': payment.userId,
+          'status': 'active',
+          'student_id': payment.userId,
+          'subject_id': subjectId,
+          'teacher_id': schoolId,
+        };
+        final enrollmentRef = schoolRef.collection('enrollments').doc(enrollmentDocId);
+        batch.set(enrollmentRef, enrollmentData, SetOptions(merge: true));
+      }
+
+      await batch.commit();
+      print('🎬 PaymentDataSource: Payment saved to schools/$schoolId/payments');
+      if (classSubjectId.isNotEmpty) {
+        print(
+            '🎬 PaymentDataSource: Enrollment upserted to schools/$schoolId/enrollments/${payment.userId}_$classSubjectId');
+      }
     } catch (e) {
       print('❌ PaymentDataSource: Failed to create payment: $e');
       throw Exception('Failed to create payment: $e');
     }
+  }
+
+  static const List<String> _monthNames = [
+    '', 'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+  static String _monthName(int monthNumber) {
+    if (monthNumber < 1 || monthNumber > 12) return 'January';
+    return _monthNames[monthNumber];
   }
 
   @override
@@ -92,47 +144,40 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
   }
 
   @override
-  Future<List<PaymentModel>> getUserPayments(String userId, {String? teacherId}) async {
+  Future<List<PaymentModel>> getUserPayments(String userId, {String? schoolId}) async {
     try {
-      print('💰 [API REQUEST] PaymentDataSource.getUserPayments called with userId: $userId, teacherId: $teacherId');
-      
-      Query<Map<String, dynamic>> query = firestore
-          .collection('payments')
-          .where('userId', isEqualTo: userId);
-      
-      // Filter by teacherId if provided
-      if (teacherId != null && teacherId.isNotEmpty) {
-        query = query.where('teacherId', isEqualTo: teacherId);
-        print('💰 [API REQUEST] Applied filter: teacherId = $teacherId');
-      }
-      
-      // When filtering by teacherId, we can't use orderBy without a composite index
-      // So we'll fetch without orderBy and sort in memory
+      print('💰 [API REQUEST] PaymentDataSource.getUserPayments called with userId: $userId, schoolId: $schoolId');
+
       QuerySnapshot<Map<String, dynamic>> querySnapshot;
-      if (teacherId != null && teacherId.isNotEmpty) {
-        // Fetch without orderBy to avoid index requirement
-        querySnapshot = await query.get();
+      if (schoolId != null && schoolId.isNotEmpty) {
+        querySnapshot = await firestore
+            .collection('schools')
+            .doc(schoolId)
+            .collection('payments')
+            .where('student_id', isEqualTo: userId)
+            .get();
       } else {
-        // When only userId filter, we can use orderBy
-        querySnapshot = await query.orderBy('createdAt', descending: true).get();
+        querySnapshot = await firestore
+            .collection('payments')
+            .where('userId', isEqualTo: userId)
+            .orderBy('createdAt', descending: true)
+            .get();
       }
-      
-      print('💰 [API RESPONSE] Found ${querySnapshot.docs.length} payment documents for userId: $userId${teacherId != null ? ', teacherId: $teacherId' : ''}');
-      
+
+      print('💰 [API RESPONSE] Found ${querySnapshot.docs.length} payment documents for userId: $userId${schoolId != null ? ', schoolId: $schoolId' : ''}');
+
       final payments = querySnapshot.docs.map((doc) {
         final data = doc.data();
-        print('💰 [API RESPONSE] Payment document ${doc.id}: $data');
         return PaymentModel.fromJson({
           'id': doc.id,
           ...data,
         });
       }).toList();
-      
-      // Sort by createdAt descending if we fetched without orderBy
-      if (teacherId != null && teacherId.isNotEmpty) {
+
+      if (payments.isNotEmpty && payments.length > 1) {
         payments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       }
-      
+
       print('💰 [API RESPONSE] Successfully parsed ${payments.length} payments');
       return payments;
     } catch (e) {
@@ -142,20 +187,21 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
   }
 
   @override
-  Future<PayAccountDetailsModel?> getPayAccountDetails(String teacherId) async {
+  Future<PayAccountDetailsModel?> getPayAccountDetails(String schoolId) async {
     try {
-      print('💰 [API REQUEST] PaymentDataSource.getPayAccountDetails called with teacherId: $teacherId');
+      print('💰 [API REQUEST] PaymentDataSource.getPayAccountDetails called with schoolId: $schoolId');
       
       final querySnapshot = await firestore
+          .collection('schools')
+          .doc(schoolId)
           .collection('pay_account_details')
-          .where('teacherId', isEqualTo: teacherId)
           .limit(1)
           .get();
       
-      print('💰 [API RESPONSE] Found ${querySnapshot.docs.length} pay account detail documents for teacherId: $teacherId');
+      print('💰 [API RESPONSE] Found ${querySnapshot.docs.length} pay account detail documents for schoolId: $schoolId');
       
       if (querySnapshot.docs.isEmpty) {
-        print('💰 [API RESPONSE] No pay account details found for teacherId: $teacherId');
+        print('💰 [API RESPONSE] No pay account details found for schoolId: $schoolId');
         return null;
       }
       
@@ -166,6 +212,7 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
       final payAccountDetails = PayAccountDetailsModel.fromJson({
         'id': doc.id,
         ...data,
+        'teacherId': schoolId,
       });
       
       print('💰 [API RESPONSE] Successfully parsed pay account details: ${payAccountDetails.slider1Url}');

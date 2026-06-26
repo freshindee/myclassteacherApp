@@ -18,7 +18,14 @@ class TeacherMasterDataModel extends TeacherMasterData {
 
   factory TeacherMasterDataModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    
+    return TeacherMasterDataModel._fromMap(data);
+  }
+
+  factory TeacherMasterDataModel.fromJson(Map<String, dynamic> data) {
+    return TeacherMasterDataModel._fromMap(data);
+  }
+
+  static TeacherMasterDataModel _fromMap(Map<String, dynamic> data) {
     // Parse grades array
     final gradesList = data['grades'] as List<dynamic>? ?? [];
     final grades = gradesList.map((e) => e.toString()).toList();
@@ -57,6 +64,8 @@ class TeacherMasterDataModel extends TeacherMasterData {
         subject: '',
         grade: '',
         image: '',
+        qualification: '',
+        specialization: '',
       );
     }).toList();
     
@@ -85,7 +94,12 @@ class TeacherMasterDataModel extends TeacherMasterData {
         updatedAt = ts.toDate();
       } else if (ts is DateTime) {
         updatedAt = ts;
+      } else if (ts is String) {
+        updatedAt = DateTime.tryParse(ts);
       }
+    }
+    if (data['createdAt'] != null && createdAt == null && data['createdAt'] is String) {
+      createdAt = DateTime.tryParse(data['createdAt'] as String);
     }
     
     return TeacherMasterDataModel(

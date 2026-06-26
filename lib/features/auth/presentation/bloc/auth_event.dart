@@ -65,6 +65,23 @@ class SignInSubmitted extends AuthEvent {
   const SignInSubmitted();
 }
 
+class SignInStudentSubmitted extends AuthEvent {
+  final String schoolId;
+  final String username;
+  final String password;
+  final bool rememberMe;
+
+  const SignInStudentSubmitted({
+    required this.schoolId,
+    required this.username,
+    required this.password,
+    this.rememberMe = true,
+  });
+
+  @override
+  List<Object> get props => [schoolId, username, password, rememberMe];
+}
+
 class SignUpSubmitted extends AuthEvent {
   const SignUpSubmitted();
 }
@@ -79,4 +96,9 @@ class CheckAuthStatus extends AuthEvent {
 
 class RefreshMasterData extends AuthEvent {
   const RefreshMasterData();
+}
+
+/// Fired when background school cache sync completes; bloc emits updated cacheSyncVersion.
+class CacheSyncCompleted extends AuthEvent {
+  const CacheSyncCompleted();
 }

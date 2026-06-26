@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 import '../../domain/entities/slider_image.dart';
 import '../../domain/usecases/get_slider_images.dart';
 import '../../../../core/services/master_data_service.dart';
+import '../../../../core/services/school_cache_service.dart';
 
 // Events
 abstract class SliderEvent extends Equatable {
@@ -13,12 +14,12 @@ abstract class SliderEvent extends Equatable {
 }
 
 class LoadSliderImages extends SliderEvent {
-  final String teacherId;
+  final String schoolId;
 
-  const LoadSliderImages(this.teacherId);
+  const LoadSliderImages(this.schoolId);
 
   @override
-  List<Object> get props => [teacherId];
+  List<Object> get props => [schoolId];
 }
 
 // States
@@ -54,8 +55,12 @@ class SliderError extends SliderState {
 // Bloc
 class SliderBloc extends Bloc<SliderEvent, SliderState> {
   final GetSliderImages getSliderImages;
+  final SchoolCacheService schoolCacheService;
 
-  SliderBloc({required this.getSliderImages}) : super(SliderInitial()) {
+  SliderBloc({
+    required this.getSliderImages,
+    required this.schoolCacheService,
+  }) : super(SliderInitial()) {
     on<LoadSliderImages>(_onLoadSliderImages);
   }
 
@@ -65,54 +70,63 @@ class SliderBloc extends Bloc<SliderEvent, SliderState> {
   ) async {
     emit(SliderLoading());
 
-    print('🖼️ [BLOC] SliderBloc: Loading slider images from master data for teacherId: ${event.teacherId}');
+    final schoolId = event.schoolId;
+    print('🖼️ [BLOC] SliderBloc: Loading slider images for schoolId: $schoolId');
 
     try {
-      // Load slider images from locally cached master data
+      // 1. Students: try cached app_config (sliderImages) from SQLite first
+      final appConfig = await schoolCacheService.getAppConfigSingle(schoolId);
+      if (appConfig != null && appConfig.sliderImages.isNotEmpty) {
+        final sliderImages = appConfig.sliderImages.asMap().entries.map((entry) {
+          final index = entry.key;
+          final imageUrl = entry.value;
+          return SliderImage(
+            id: 'app_config_${schoolId}_$index',
+            teacherId: schoolId,
+            imageUrl: imageUrl,
+          );
+        }).toList();
+        print('🖼️ [BLOC] Loaded ${sliderImages.length} slider images from app_config cache');
+        emit(SliderLoaded(sliderImages));
+        return;
+      }
+
+      // 2. Teachers: locally cached master data
       final masterData = await MasterDataService.getTeacherMasterData();
-      
       if (masterData != null && masterData.sliderImages.isNotEmpty) {
-        // Convert list of URLs to SliderImage entities
         final sliderImages = masterData.sliderImages.asMap().entries.map((entry) {
           final index = entry.key;
           final imageUrl = entry.value;
           return SliderImage(
-            id: 'master_${event.teacherId}_$index',
-            teacherId: event.teacherId,
+            id: 'master_${schoolId}_$index',
+            teacherId: schoolId,
             imageUrl: imageUrl,
           );
         }).toList();
-        
-        print('🖼️ [BLOC] Successfully loaded ${sliderImages.length} slider images from master data');
+        print('🖼️ [BLOC] Loaded ${sliderImages.length} slider images from master data');
         emit(SliderLoaded(sliderImages));
-      } else {
-        print('🖼️ [BLOC] No slider images found in master data, falling back to database');
-        // Fallback to database if master data doesn't have slider images
-        final result = await getSliderImages(event.teacherId);
-        result.fold(
-          (failure) {
-            print('🖼️ [BLOC ERROR] Failed to load slider images: ${failure.message}');
-            emit(SliderError(failure.message));
-          },
-          (sliderImages) {
-            print('🖼️ [BLOC] Successfully loaded ${sliderImages.length} slider images from database');
-            emit(SliderLoaded(sliderImages));
-          },
-        );
+        return;
       }
-    } catch (e) {
-      print('🖼️ [BLOC ERROR] Error loading slider images from master data: $e');
-      // Fallback to database on error
-      final result = await getSliderImages(event.teacherId);
+
+      // 3. Fallback: remote
+      print('🖼️ [BLOC] No slider in cache, falling back to database');
+      final result = await getSliderImages(schoolId);
       result.fold(
         (failure) {
           print('🖼️ [BLOC ERROR] Failed to load slider images: ${failure.message}');
           emit(SliderError(failure.message));
         },
         (sliderImages) {
-          print('🖼️ [BLOC] Successfully loaded ${sliderImages.length} slider images from database');
+          print('🖼️ [BLOC] Loaded ${sliderImages.length} slider images from database');
           emit(SliderLoaded(sliderImages));
         },
+      );
+    } catch (e) {
+      print('🖼️ [BLOC ERROR] Error loading slider images: $e');
+      final result = await getSliderImages(schoolId);
+      result.fold(
+        (failure) => emit(SliderError(failure.message)),
+        (sliderImages) => emit(SliderLoaded(sliderImages)),
       );
     }
   }

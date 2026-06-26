@@ -1,13 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:get_it/get_it.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 
 import 'core/network/network_info.dart';
+import 'core/network/network_info_io.dart';
+import 'core/network/network_info_web.dart';
 import 'core/services/crypto_service.dart';
+import 'core/services/school_cache_service.dart';
+import 'core/services/school_cache_sync_service.dart';
+import 'core/services/school_content_service.dart';
 import 'features/auth/data/datasources/auth_remote_data_source.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/domain/usecases/sign_in.dart';
+import 'features/auth/domain/usecases/sign_in_student.dart';
 import 'features/auth/domain/usecases/sign_out.dart';
 import 'features/auth/domain/usecases/sign_up.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
@@ -50,8 +57,6 @@ import 'features/payment/domain/usecases/get_user_subscriptions.dart';
 import 'features/payment/domain/usecases/get_user_payments.dart';
 import 'features/home/domain/usecases/get_free_videos.dart';
 import 'features/home/presentation/pages/free_videos_bloc.dart';
-import 'features/home/domain/usecases/get_free_notes.dart';
-import 'features/home/presentation/pages/free_notes_bloc.dart';
 import 'features/home/domain/usecases/get_today_classes.dart';
 import 'features/home/domain/repositories/today_class_repository.dart';
 import 'features/home/data/repositories/today_class_repository_impl.dart';
@@ -112,11 +117,14 @@ void init() {
   sl.registerFactory(
     () => AuthBloc(
       signIn: sl(),
+      signInStudent: sl(),
       signUp: sl(),
       signOut: sl(),
       getSubjects: sl(),
       getGrades: sl(),
       getTeacherMasterData: sl(),
+      schoolCacheSyncService: sl(),
+      schoolCacheService: sl(),
     ),
   );
   sl.registerFactory(
@@ -141,6 +149,8 @@ void init() {
       createPayment: sl(),
       checkAccess: sl(),
       getPayAccountDetails: sl(),
+      schoolCacheService: sl(),
+      schoolCacheSyncService: sl(),
     ),
   );
   sl.registerFactory(
@@ -178,16 +188,13 @@ void init() {
   sl.registerFactory(
     () => SliderBloc(
       getSliderImages: sl(),
-    ),
-  );
-  sl.registerFactory(
-    () => FreeNotesBloc(
-      getFreeNotes: sl(),
+      schoolCacheService: sl(),
     ),
   );
 
   // Use cases
   sl.registerLazySingleton(() => SignIn(sl()));
+  sl.registerLazySingleton(() => SignInStudent(sl()));
   sl.registerLazySingleton(() => SignUp(sl()));
   sl.registerLazySingleton(() => SignOut(sl()));
   sl.registerLazySingleton(() => UpdateUser(sl()));
@@ -207,7 +214,6 @@ void init() {
   sl.registerLazySingleton(() => GetUserPayments(sl()));
   sl.registerLazySingleton(() => GetFreeVideos(sl()));
   sl.registerLazySingleton(() => GetFreeVideosByGrade(sl()));
-  sl.registerLazySingleton(() => GetFreeNotes(sl()));
   sl.registerLazySingleton(() => GetTeachers(sl()));
   sl.registerLazySingleton(() => GetTermTestPapers(sl()));
   sl.registerLazySingleton(() => GetSliderImages(sl()));
@@ -389,13 +395,22 @@ void init() {
   );
 
   // Core
-  sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
+  if (kIsWeb) {
+    sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoWeb());
+  } else {
+    sl.registerLazySingleton(() => InternetConnectionChecker());
+    sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoIo(sl()));
+  }
   sl.registerLazySingleton<CryptoService>(() => CryptoService());
+  sl.registerLazySingleton<SchoolCacheService>(() => SchoolCacheService());
+  sl.registerLazySingleton<SchoolContentService>(() => SchoolContentService(apiClient: sl()));
+  sl.registerLazySingleton<SchoolCacheSyncService>(
+    () => SchoolCacheSyncService(firestore: sl()),
+  );
   sl.registerLazySingleton<ApiClient>(
     () => ApiClient(baseUrl: ApiEndpoints.examApiBaseUrl),
   );
 
   // External
   sl.registerLazySingleton(() => FirebaseFirestore.instance);
-  sl.registerLazySingleton(() => InternetConnectionChecker());
 } 

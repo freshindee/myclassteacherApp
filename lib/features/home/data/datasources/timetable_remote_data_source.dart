@@ -3,8 +3,8 @@ import 'dart:developer' as developer;
 import '../models/timetable_model.dart';
 
 abstract class TimetableRemoteDataSource {
-  Future<List<TimetableModel>> getTimetableByGrade(String teacherId, String grade);
-  Future<List<String>> getAvailableGrades(String teacherId);
+  Future<List<TimetableModel>> getTimetableByGrade(String schoolId, String grade);
+  Future<List<String>> getAvailableGrades(String schoolId);
 }
 
 class TimetableRemoteDataSourceImpl implements TimetableRemoteDataSource {
@@ -15,17 +15,18 @@ class TimetableRemoteDataSourceImpl implements TimetableRemoteDataSource {
   });
 
   @override
-  Future<List<TimetableModel>> getTimetableByGrade(String teacherId, String grade) async {
+  Future<List<TimetableModel>> getTimetableByGrade(String schoolId, String grade) async {
     try {
-      print('📅 [API REQUEST] TimetableDataSource.getTimetableByGrade called with teacherId: $teacherId, grade: $grade');
+      print('📅 [API REQUEST] TimetableDataSource.getTimetableByGrade called with schoolId: $schoolId, grade: $grade');
       
       final querySnapshot = await firestore
-          .collection('timetable')
-          .where('teacherId', isEqualTo: teacherId)
+          .collection('schools')
+          .doc(schoolId)
+          .collection('timetables')
           .where('grade', isEqualTo: grade)
           .get();
       
-      print('📅 [API RESPONSE] Found ${querySnapshot.docs.length} timetable documents for teacherId: $teacherId, grade: $grade');
+      print('📅 [API RESPONSE] Found ${querySnapshot.docs.length} timetable documents for schoolId: $schoolId, grade: $grade');
       
       final timetables = querySnapshot.docs.map((doc) {
         final data = doc.data();
@@ -45,16 +46,17 @@ class TimetableRemoteDataSourceImpl implements TimetableRemoteDataSource {
   }
 
   @override
-  Future<List<String>> getAvailableGrades(String teacherId) async {
+  Future<List<String>> getAvailableGrades(String schoolId) async {
     try {
-      print('📅 [API REQUEST] TimetableDataSource.getAvailableGrades called with teacherId: $teacherId');
+      print('📅 [API REQUEST] TimetableDataSource.getAvailableGrades called with schoolId: $schoolId');
       
       final querySnapshot = await firestore
-          .collection('timetable')
-          .where('teacherId', isEqualTo: teacherId)
+          .collection('schools')
+          .doc(schoolId)
+          .collection('timetables')
           .get();
       
-      print('📅 [API RESPONSE] Found ${querySnapshot.docs.length} timetable documents for teacherId: $teacherId');
+      print('📅 [API RESPONSE] Found ${querySnapshot.docs.length} timetable documents for schoolId: $schoolId');
       
       final grades = querySnapshot.docs
           .map((doc) => doc.data()['grade'] as String)

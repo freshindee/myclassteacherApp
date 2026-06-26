@@ -12,6 +12,8 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases.dart';
 import '../../../../core/utils/month_utils.dart';
 import '../../../../core/services/master_data_service.dart';
+import '../../../../core/services/school_cache_service.dart';
+import '../../../../core/services/school_cache_sync_service.dart';
 part 'payment_event.dart';
 part 'payment_state.dart';
 
@@ -19,11 +21,15 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
   final CreatePayment createPayment;
   final CheckAccess checkAccess;
   final GetPayAccountDetails getPayAccountDetails;
+  final SchoolCacheService schoolCacheService;
+  final SchoolCacheSyncService schoolCacheSyncService;
 
   PaymentBloc({
     required this.createPayment,
     required this.checkAccess,
     required this.getPayAccountDetails,
+    required this.schoolCacheService,
+    required this.schoolCacheSyncService,
   }) : super(PaymentInitial()) {
     on<CreatePaymentRequested>(_onCreatePaymentRequested);
     on<CheckAccessRequested>(_onCheckAccessRequested);
@@ -60,15 +66,17 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
       id: paymentId,
       userId: event.userId,
       teacherId: event.teacherId,
-      grade: event.grade, // This now contains only the grade number
+      grade: event.grade,
       subject: event.subject,
-      month: monthNumber, // Store as integer
+      month: monthNumber,
       year: event.year,
       amount: event.amount,
-      status: 'completed', // For demo purposes, assume payment is successful
+      status: 'pending',
       createdAt: now,
-      completedAt: now,
+      completedAt: null,
       slipUrl: event.slipUrl,
+      className: event.className,
+      classSubjectId: event.classSubjectId,
     );
 
     final subscription = Subscription(
@@ -123,36 +131,51 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
   ) async {
     emit(PayAccountDetailsLoading());
 
-    print('💰 [BLOC] PaymentBloc: Loading bank details from master data for teacherId: ${event.teacherId}');
+    final schoolId = event.schoolId;
+    print('💰 [BLOC] PaymentBloc: Loading bank details for schoolId: $schoolId');
 
     try {
-      // Load bank details from master data
-      final masterData = await MasterDataService.getTeacherMasterData();
-      
-      if (masterData != null && masterData.bankDetails.isNotEmpty) {
-        print('💰 [BLOC] Successfully loaded ${masterData.bankDetails.length} bank detail images from master data');
-        emit(PayAccountDetailsLoaded(masterData.bankDetails));
-      } else {
-        print('💰 [BLOC] No bank details found in master data for teacherId: ${event.teacherId}');
-        // Fallback to old method if master data doesn't have bank details
-        final result = await getPayAccountDetails(event.teacherId);
-        result.fold(
-          (failure) {
-            print('💰 [BLOC ERROR] Failed to load pay account details: ${failure.message}');
-            emit(PayAccountDetailsError(failure.message));
-          },
-          (payAccountDetails) {
-            if (payAccountDetails != null) {
-              print('💰 [BLOC] Using fallback: loaded pay account details with slider URL: ${payAccountDetails.slider1Url}');
-              // Convert single URL to list for compatibility
-              emit(PayAccountDetailsLoaded([payAccountDetails.slider1Url]));
-            } else {
-              print('💰 [BLOC] No pay account details found for teacherId: ${event.teacherId}');
-              emit(const PayAccountDetailsError('No account details found for this teacher'));
-            }
-          },
-        );
+      // 1. Bank details from schools/{schoolId}/app_config: try cache first
+      final appConfig = await schoolCacheService.getAppConfigSingle(schoolId);
+      if (appConfig != null && appConfig.bankDetails.isNotEmpty) {
+        print('💰 [BLOC] Loaded ${appConfig.bankDetails.length} bank details from app_config cache');
+        emit(PayAccountDetailsLoaded(appConfig.bankDetails));
+        return;
       }
+
+      // 2. If cache empty, fetch app_config from Firestore (bank_details array)
+      final bankDetailsFromFirestore =
+          await schoolCacheSyncService.fetchBankDetailsFromAppConfig(schoolId);
+      if (bankDetailsFromFirestore.isNotEmpty) {
+        print('💰 [BLOC] Loaded ${bankDetailsFromFirestore.length} bank details from Firestore app_config');
+        emit(PayAccountDetailsLoaded(bankDetailsFromFirestore));
+        return;
+      }
+
+      // 3. Teachers: master data fallback
+      final masterData = await MasterDataService.getTeacherMasterData();
+      if (masterData != null && masterData.bankDetails.isNotEmpty) {
+        print('💰 [BLOC] Loaded ${masterData.bankDetails.length} bank details from master data');
+        emit(PayAccountDetailsLoaded(masterData.bankDetails));
+        return;
+      }
+
+      // 4. Fallback: remote pay_account_details
+      print('💰 [BLOC] No bank details in cache, falling back to remote');
+      final result = await getPayAccountDetails(schoolId);
+      result.fold(
+        (failure) {
+          print('💰 [BLOC ERROR] Failed to load pay account details: ${failure.message}');
+          emit(PayAccountDetailsError(failure.message));
+        },
+        (payAccountDetails) {
+          if (payAccountDetails != null) {
+            emit(PayAccountDetailsLoaded([payAccountDetails.slider1Url]));
+          } else {
+            emit(const PayAccountDetailsError('No account details found for this teacher'));
+          }
+        },
+      );
     } catch (e) {
       print('💰 [BLOC ERROR] Error loading bank details: $e');
       emit(PayAccountDetailsError('Failed to load bank details: $e'));

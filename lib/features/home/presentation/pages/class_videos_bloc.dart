@@ -32,7 +32,7 @@ class ClassVideosBloc extends Bloc<ClassVideosEvent, ClassVideosState> {
     // Enhanced logging for parameters being sent
     print('🎬 ====== VIDEO FETCH PARAMETERS ======');
     print('🎬 userId: ${event.userId}');
-    print('🎬 teacherId: ${event.teacherId}');
+    print('🎬 schoolId: ${event.schoolId}');
     final now = DateTime.now();
     final currentMonth = now.month; // Use integer month number
     final currentYear = now.year;
@@ -40,14 +40,14 @@ class ClassVideosBloc extends Bloc<ClassVideosEvent, ClassVideosState> {
     print('🎬 currentYear: $currentYear');
     print('🎬 ====================================');
     
-    developer.log('🎬 Fetching videos with parameters: userId=${event.userId}, teacherId=${event.teacherId}, month=$currentMonth, year=$currentYear', name: 'ClassVideosBloc');
+    developer.log('🎬 Fetching videos with parameters: userId=${event.userId}, schoolId=${event.schoolId}, month=$currentMonth, year=$currentYear', name: 'ClassVideosBloc');
     
     try {
 
       // 1. Fetch all videos for the current month
       final getVideosParams = GetVideosParams(
         userId: event.userId,
-        teacherId: event.teacherId,
+        schoolId: event.schoolId,
         grade: event.grade,
         subject: event.subject,
         month: currentMonth, 
@@ -57,7 +57,7 @@ class ClassVideosBloc extends Bloc<ClassVideosEvent, ClassVideosState> {
       
       print('🎬 Sending GetVideosParams to repository:');
       print('🎬   - userId: ${getVideosParams.userId}');
-      print('🎬   - teacherId: ${getVideosParams.teacherId}');
+      print('🎬   - schoolId: ${getVideosParams.schoolId}');
       print('🎬   - month: ${getVideosParams.month}');
       print('🎬   - year: ${getVideosParams.year}');
       print('🎬   - grade: ${getVideosParams.grade}');

@@ -7,6 +7,7 @@ abstract class ExamPaperRemoteDataSource {
     required String grade,
     required int subjectId,
     int? chapterId,
+    String? subjectIdStr,
   });
 }
 
@@ -20,18 +21,18 @@ class ExamPaperRemoteDataSourceImpl implements ExamPaperRemoteDataSource {
     required String grade,
     required int subjectId,
     int? chapterId,
+    String? subjectIdStr,
   }) async {
     try {
       print('📝 [API REQUEST] ExamPaperDataSource.getExamPapers called');
-      print('📝 [API REQUEST] - grade: $grade, subjectId: $subjectId, chapterId: $chapterId');
-      
-      // Build query parameters
+      print('📝 [API REQUEST] - grade: $grade, subjectId: $subjectId, subjectIdStr: $subjectIdStr, chapterId: $chapterId');
+
+      // Paper table uses string subject_id (e.g. class_subject id). Prefer subjectIdStr when set.
       final queryParameters = <String, dynamic>{
         'grade': grade,
-        'subject_id': subjectId,
+        'subject_id': subjectIdStr != null && subjectIdStr.isNotEmpty ? subjectIdStr : subjectId,
       };
-      
-      // Add chapter_id only if provided
+
       if (chapterId != null && chapterId > 0) {
         queryParameters['chapter_id'] = chapterId;
       }
@@ -40,6 +41,15 @@ class ExamPaperRemoteDataSourceImpl implements ExamPaperRemoteDataSource {
         ApiEndpoints.papersList,
         queryParameters: queryParameters,
       );
+
+      // Treat 404 "No papers found" as empty list (no error)
+      if (response.statusCode == 404) {
+        final msg = (response.error ?? response.data?.toString() ?? '').toString().toLowerCase();
+        if (msg.contains('no papers found') || msg.isEmpty) {
+          print('📝 [API RESPONSE] No papers found (404) - returning empty list');
+          return [];
+        }
+      }
 
       if (!response.isSuccess) {
         print('📝 [API ERROR] Failed to fetch exam papers: ${response.error}');

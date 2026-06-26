@@ -12,10 +12,12 @@ class ExamSubjectModel {
   });
 
   factory ExamSubjectModel.fromJson(Map<String, dynamic> json) {
+    final id = json['id'];
+    final name = json['name'];
     return ExamSubjectModel(
-      id: json['id'] as int,
-      name: json['name'] as String,
-      description: json['description'] as String? ?? '',
+      id: id is int ? id : int.tryParse(id?.toString() ?? '') ?? 0,
+      name: name?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
     );
   }
 

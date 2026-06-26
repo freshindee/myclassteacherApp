@@ -16,13 +16,13 @@ class SubjectRepositoryImpl implements SubjectRepository {
   });
 
   @override
-  Future<Either<Failure, List<Subject>>> getSubjects(String teacherId) async {
-    print('📚 [REPOSITORY] SubjectRepository.getSubjects called with teacherId: $teacherId');
+  Future<Either<Failure, List<Subject>>> getSubjects(String schoolId) async {
+    print('📚 [REPOSITORY] SubjectRepository.getSubjects called with schoolId: $schoolId');
     
     if (await networkInfo.isConnected) {
       try {
         print('📚 [REPOSITORY] Network connected, calling remote data source...');
-        final subjectModels = await remoteDataSource.getSubjects(teacherId);
+        final subjectModels = await remoteDataSource.getSubjects(schoolId);
         print('📚 [REPOSITORY] Successfully fetched ${subjectModels.length} subject models from remote data source');
         
         final subjects = subjectModels.map((model) => Subject(

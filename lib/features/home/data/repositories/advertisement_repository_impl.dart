@@ -15,13 +15,13 @@ class AdvertisementRepositoryImpl implements AdvertisementRepository {
   });
 
   @override
-  Future<Either<Failure, List<Video>>> getAdvertisements(String teacherId) async {
-    print('📢 [REPOSITORY] AdvertisementRepository.getAdvertisements called with teacherId: $teacherId');
+  Future<Either<Failure, List<Video>>> getAdvertisements(String schoolId) async {
+    print('📢 [REPOSITORY] AdvertisementRepository.getAdvertisements called with schoolId: $schoolId');
     
     if (await networkInfo.isConnected) {
       try {
         print('📢 [REPOSITORY] Network connected, calling remote data source...');
-        final advertisementModels = await remoteDataSource.getAdvertisements(teacherId);
+        final advertisementModels = await remoteDataSource.getAdvertisements(schoolId);
         print('📢 [REPOSITORY] Successfully fetched ${advertisementModels.length} advertisement models from remote data source');
         
         final advertisements = advertisementModels

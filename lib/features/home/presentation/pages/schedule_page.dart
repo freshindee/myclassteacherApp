@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/timetable.dart';
+import '../../domain/usecases/get_available_grades.dart';
 import 'schedule_bloc.dart';
 import '../../../../core/services/user_session_service.dart';
 import '../../../../core/services/master_data_service.dart';
@@ -16,94 +17,85 @@ class SchedulePage extends StatefulWidget {
 class _SchedulePageState extends State<SchedulePage> {
   List<String> _grades = [];
   bool _isLoadingGrades = true;
-  String? _teacherId;
+  String? _schoolId;
   String? _selectedGrade;
   bool _showTimetable = false;
 
   @override
   void initState() {
     super.initState();
-    _loadTeacherId();
-    _loadGrades();
+    _loadSchoolId();
   }
 
-  Future<void> _loadTeacherId() async {
+  Future<void> _loadSchoolId() async {
     final user = await UserSessionService.getCurrentUser();
-    setState(() {
-      _teacherId = user?.teacherId ?? '';
-    });
+    final id = user?.teacherId ?? '';
+    if (mounted) {
+      setState(() {
+        _schoolId = id;
+        _isLoadingGrades = id.isNotEmpty;
+      });
+    }
+    if (mounted && id.isNotEmpty) {
+      await _loadGrades(id);
+    } else if (mounted) {
+      setState(() => _isLoadingGrades = false);
+    }
   }
 
-  Future<void> _loadGrades() async {
-    setState(() {
-      _isLoadingGrades = true;
-    });
-    
+  /// Loads grade list from master data, then from Grade entities; if still empty, from timetables (Firestore).
+  /// Using grades from timetables ensures names like "Yellow Birds" match the actual timetable documents.
+  Future<void> _loadGrades(String schoolId) async {
+    setState(() => _isLoadingGrades = true);
+
     try {
-      print('📅 [DEBUG] SchedulePage - Starting to load grades from master data');
-      
-      // First try to get from teacher master data (master_teacher collection)
+      // 1) Teacher master data
       final masterData = await MasterDataService.getTeacherMasterData();
-      print('📅 [DEBUG] SchedulePage - Master data result: ${masterData != null ? "Found" : "Not found"}');
-      
-      if (masterData != null) {
-        print('📅 [DEBUG] SchedulePage - Master data teacherId: ${masterData.teacherId}');
-        print('📅 [DEBUG] SchedulePage - Master data grades count: ${masterData.grades.length}');
-        print('📅 [DEBUG] SchedulePage - Master data grades: ${masterData.grades}');
-        
-        if (masterData.grades.isNotEmpty) {
-          setState(() {
-            _grades = masterData.grades;
-            _isLoadingGrades = false;
-          });
-          print('✅ [DEBUG] SchedulePage - Successfully loaded ${_grades.length} grades from master_teacher collection');
-          print('✅ [DEBUG] SchedulePage - Grades: $_grades');
-          return;
-        } else {
-          print('⚠️ [DEBUG] SchedulePage - Master data found but grades list is empty');
-        }
-      } else {
-        print('⚠️ [DEBUG] SchedulePage - No master data found, will try fallback');
+      if (masterData != null && masterData.grades.isNotEmpty && mounted) {
+        setState(() {
+          _grades = masterData.grades;
+          _isLoadingGrades = false;
+        });
+        return;
       }
-      
-      // Fallback to Grade entities from master data (grades collection)
-      print('📅 [DEBUG] SchedulePage - Trying fallback: loading from Grade entities');
+
+      // 2) Grade entities (grades collection)
       final gradeEntities = await MasterDataService.getGrades();
-      print('📅 [DEBUG] SchedulePage - Grade entities count: ${gradeEntities.length}');
-      
-      if (gradeEntities.isNotEmpty) {
+      if (gradeEntities.isNotEmpty && mounted) {
         final gradeNames = gradeEntities.map((g) => g.name).toList();
-        print('📅 [DEBUG] SchedulePage - Grade entity names: $gradeNames');
-        
         setState(() {
           _grades = gradeNames;
           _isLoadingGrades = false;
         });
-        print('⚠️ [DEBUG] SchedulePage - Loaded ${_grades.length} grades from Grade entities (fallback)');
-        print('⚠️ [DEBUG] SchedulePage - Grades: $_grades');
-        print('⚠️ [WARNING] SchedulePage - Using fallback grades collection instead of master_teacher!');
         return;
       }
-      
-      // If no grades found, set empty list
-      setState(() {
-        _grades = [];
-        _isLoadingGrades = false;
-      });
-      print('❌ [DEBUG] SchedulePage - No grades found in master data');
+
+      // 3) Grades from timetables collection (so values like "Yellow Birds" match Firestore)
+      final result = await sl<GetAvailableGrades>()(schoolId);
+      if (!mounted) return;
+      result.fold(
+        (failure) => setState(() {
+          _grades = [];
+          _isLoadingGrades = false;
+        }),
+        (grades) => setState(() {
+          _grades = grades;
+          _isLoadingGrades = false;
+        }),
+      );
     } catch (e) {
-      print('❌ [DEBUG] SchedulePage - Error loading grades: $e');
-      print('❌ [DEBUG] SchedulePage - Stack trace: ${StackTrace.current}');
-      setState(() {
-        _grades = [];
-        _isLoadingGrades = false;
-      });
+      if (mounted) {
+        setState(() {
+          _grades = [];
+          _isLoadingGrades = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_teacherId == null || _isLoadingGrades) {
+    if (_schoolId == null || _isLoadingGrades) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('පන්ති කාල සටහන'),
@@ -114,7 +106,7 @@ class _SchedulePageState extends State<SchedulePage> {
       );
     }
 
-    if (_teacherId!.isEmpty) {
+    if (_schoolId!.isEmpty) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('පන්ති කාල සටහන'),
@@ -154,7 +146,7 @@ class _SchedulePageState extends State<SchedulePage> {
                       context,
                       state.timetables,
                       state.selectedGrade,
-                      _teacherId!,
+                      _schoolId!,
                       onBackToGrades: () {
                         setState(() {
                           _showTimetable = false;
@@ -173,7 +165,7 @@ class _SchedulePageState extends State<SchedulePage> {
                           const SizedBox(height: 16),
                           ElevatedButton(
                             onPressed: () {
-                              context.read<ScheduleBloc>().add(LoadTimetable(_teacherId!, _selectedGrade!));
+                              context.read<ScheduleBloc>().add(LoadTimetable(_schoolId!, _selectedGrade!));
                             },
                             child: const Text('Retry'),
                           ),
@@ -193,7 +185,7 @@ class _SchedulePageState extends State<SchedulePage> {
                   );
                 },
               )
-            : _buildGradesList(context, _grades, _teacherId!),
+            : _buildGradesList(context, _grades, _schoolId!),
         floatingActionButton: _showTimetable
             ? FloatingActionButton(
                 onPressed: () {
@@ -211,7 +203,7 @@ class _SchedulePageState extends State<SchedulePage> {
     );
   }
 
-  Widget _buildGradesList(BuildContext context, List<String> grades, String teacherId) {
+  Widget _buildGradesList(BuildContext context, List<String> grades, String schoolId) {
     if (grades.isEmpty) {
       return const Center(
         child: Column(
@@ -242,20 +234,22 @@ class _SchedulePageState extends State<SchedulePage> {
 
     return RefreshIndicator(
       onRefresh: () async {
-        await _loadGrades();
+        if (_schoolId != null && _schoolId!.isNotEmpty) {
+          await _loadGrades(_schoolId!);
+        }
       },
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: sortedGrades.length,
         itemBuilder: (context, index) {
           final grade = sortedGrades[index];
-          return _buildGradeCard(context, grade, teacherId);
+          return _buildGradeCard(context, grade, schoolId);
         },
       ),
     );
   }
 
-  Widget _buildGradeCard(BuildContext context, String grade, String teacherId) {
+  Widget _buildGradeCard(BuildContext context, String grade, String schoolId) {
     // If this is the special card, navigate to Grades1to5Page
     if (grade.toLowerCase().contains('1 to 5')) {
       return Card(
@@ -333,7 +327,7 @@ class _SchedulePageState extends State<SchedulePage> {
             _selectedGrade = formattedGrade;
             _showTimetable = true;
           });
-          context.read<ScheduleBloc>().add(LoadTimetable(teacherId, formattedGrade));
+          context.read<ScheduleBloc>().add(LoadTimetable(schoolId, formattedGrade));
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -383,7 +377,7 @@ class _SchedulePageState extends State<SchedulePage> {
     );
   }
 
-  static Widget _buildTimetableView(BuildContext context, List<Timetable> timetables, String selectedGrade, String teacherId, {VoidCallback? onBackToGrades}) {
+  static Widget _buildTimetableView(BuildContext context, List<Timetable> timetables, String selectedGrade, String schoolId, {VoidCallback? onBackToGrades}) {
     if (timetables.isEmpty) {
       return Center(
         child: Column(
@@ -431,7 +425,7 @@ class _SchedulePageState extends State<SchedulePage> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async {
-              context.read<ScheduleBloc>().add(LoadTimetable(teacherId, selectedGrade));
+              context.read<ScheduleBloc>().add(LoadTimetable(schoolId, selectedGrade));
             },
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -535,7 +529,7 @@ class _SchedulePageState extends State<SchedulePage> {
                   ),
                 ),
                 const SizedBox(width: 18),
-                // Teacher name and label
+                // Teacher name, day, and label
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -554,7 +548,47 @@ class _SchedulePageState extends State<SchedulePage> {
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                      if (timetable.day.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Icon(Icons.calendar_today, size: 16, color: Colors.grey[700]),
+                            const SizedBox(width: 6),
+                            Text(
+                              timetable.day,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[800],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (timetable.teacher != null && timetable.teacher!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.person_outline, size: 16, color: Colors.grey[700]),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                timetable.teacher!,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[800],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -759,28 +793,28 @@ class GradeTimetablePage extends StatefulWidget {
 }
 
 class _GradeTimetablePageState extends State<GradeTimetablePage> {
-  String? teacherId;
+  String? schoolId;
 
   @override
   void initState() {
     super.initState();
-    _loadTeacherId();
+    _loadSchoolId();
   }
 
-  Future<void> _loadTeacherId() async {
+  Future<void> _loadSchoolId() async {
     final user = await UserSessionService.getCurrentUser();
     setState(() {
-      teacherId = user?.teacherId ?? '';
+      schoolId = user?.teacherId ?? '';
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (teacherId == null) {
+    if (schoolId == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return BlocProvider(
-      create: (context) => sl<ScheduleBloc>()..add(LoadTimetable(teacherId!, widget.grade)),
+      create: (context) => sl<ScheduleBloc>()..add(LoadTimetable(schoolId!, widget.grade)),
       child: Scaffold(
         appBar: AppBar(
           title: Text('${widget.grade} Timetable'),
@@ -792,7 +826,7 @@ class _GradeTimetablePageState extends State<GradeTimetablePage> {
             if (state is ScheduleInitial || state is ScheduleLoading) {
               return const Center(child: CircularProgressIndicator());
             } else if (state is TimetableLoaded) {
-              return _SchedulePageState._buildTimetableView(context, state.timetables, widget.grade, teacherId!);
+              return _SchedulePageState._buildTimetableView(context, state.timetables, widget.grade, schoolId!);
             } else if (state is ScheduleError) {
               return Center(child: Text('Error: ${state.message}'));
             }

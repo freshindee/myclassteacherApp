@@ -15,10 +15,10 @@ class TeacherMasterDataRepositoryImpl implements TeacherMasterDataRepository {
   });
 
   @override
-  Future<Either<Failure, TeacherMasterData?>> getTeacherMasterData(String teacherId) async {
+  Future<Either<Failure, TeacherMasterData?>> getTeacherMasterData(String schoolId) async {
     if (await networkInfo.isConnected) {
       try {
-        final masterDataModel = await remoteDataSource.getTeacherMasterData(teacherId);
+        final masterDataModel = await remoteDataSource.getTeacherMasterData(schoolId);
         final masterData = masterDataModel?.toEntity();
         return Right(masterData);
       } catch (e) {

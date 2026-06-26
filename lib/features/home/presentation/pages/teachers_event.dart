@@ -6,8 +6,8 @@ abstract class TeachersEvent extends Equatable {
   List<Object> get props => [];
 }
 class LoadTeachers extends TeachersEvent {
-  final String teacherId;
-  const LoadTeachers(this.teacherId);
+  final String schoolId;
+  const LoadTeachers(this.schoolId);
   @override
-  List<Object> get props => [teacherId];
+  List<Object> get props => [schoolId];
 } 

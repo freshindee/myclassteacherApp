@@ -9,7 +9,6 @@ class TodayClass extends Equatable {
   final String joinUrl;
   final String? zoomId;
   final String? password;
-  final String? accessLevel;
 
   const TodayClass({
     required this.grade,
@@ -20,9 +19,8 @@ class TodayClass extends Equatable {
     required this.joinUrl,
     this.zoomId,
     this.password,
-    this.accessLevel,
   });
 
   @override
-  List<Object?> get props => [grade, subject, teacher, teacherId, time, joinUrl, zoomId, password, accessLevel];
+  List<Object?> get props => [grade, subject, teacher, teacherId, time, joinUrl, zoomId, password];
 } 

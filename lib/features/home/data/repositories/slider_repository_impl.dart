@@ -15,13 +15,13 @@ class SliderRepositoryImpl implements SliderRepository {
   });
 
   @override
-  Future<Either<Failure, List<SliderImage>>> getSliderImages(String teacherId) async {
+  Future<Either<Failure, List<SliderImage>>> getSliderImages(String schoolId) async {
     if (await networkInfo.isConnected) {
       try {
-        print('🖼️ [REPOSITORY] SliderRepository.getSliderImages called with teacherId: $teacherId');
-        final sliderImageModels = await remoteDataSource.getSliderImages(teacherId);
+        print('🖼️ [REPOSITORY] SliderRepository.getSliderImages called with schoolId: $schoolId');
+        final sliderImageModels = await remoteDataSource.getSliderImages(schoolId);
         final sliderImages = sliderImageModels.map((model) => model.toEntity()).toList();
-        print('🖼️ [REPOSITORY] Successfully retrieved ${sliderImages.length} slider images for teacherId: $teacherId');
+        print('🖼️ [REPOSITORY] Successfully retrieved ${sliderImages.length} slider images for schoolId: $schoolId');
         return Right(sliderImages);
       } catch (e) {
         print('🖼️ [REPOSITORY ERROR] Failed to get slider images: $e');

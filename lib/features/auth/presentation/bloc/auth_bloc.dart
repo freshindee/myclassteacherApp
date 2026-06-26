@@ -2,12 +2,17 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:formz/formz.dart';
 import '../../domain/usecases/sign_in.dart';
+import '../../domain/usecases/sign_in_student.dart';
 import '../../domain/usecases/sign_up.dart';
 import '../../domain/usecases/sign_out.dart';
 import '../../../../core/usecases.dart';
 import '../../../../core/services/user_session_service.dart';
 import '../../../../core/services/master_data_service.dart';
+import '../../../../core/services/school_cache_sync_service.dart';
+import '../../../../core/services/school_cache_service.dart';
+import '../../../../core/database/school_cache_database.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/utils/sri_lanka_phone_utils.dart';
 import '../../domain/entities/user.dart';
 import '../../../home/domain/usecases/get_subjects.dart';
 import '../../../home/domain/usecases/get_grades.dart';
@@ -17,19 +22,25 @@ part 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final SignIn signIn;
+  final SignInStudent signInStudent;
   final SignUp signUp;
   final SignOut signOut;
   final GetSubjects getSubjects;
   final GetGrades getGrades;
   final GetTeacherMasterData getTeacherMasterData;
+  final SchoolCacheSyncService schoolCacheSyncService;
+  final SchoolCacheService schoolCacheService;
 
   AuthBloc({
     required this.signIn,
+    required this.signInStudent,
     required this.signUp,
     required this.signOut,
     required this.getSubjects,
     required this.getGrades,
     required this.getTeacherMasterData,
+    required this.schoolCacheSyncService,
+    required this.schoolCacheService,
   }) : super(const AuthState()) {
     on<PhoneNumberChanged>(_onPhoneNumberChanged);
     on<PasswordChanged>(_onPasswordChanged);
@@ -37,11 +48,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<BirthdayChanged>(_onBirthdayChanged);
     on<DistrictChanged>(_onDistrictChanged);
     on<SignInSubmitted>(_onSignInSubmitted);
+    on<SignInStudentSubmitted>(_onSignInStudentSubmitted);
     on<SignUpSubmitted>(_onSignUpSubmitted);
     on<SignOutSubmitted>(_onSignOutSubmitted);
     on<CheckAuthStatus>(_onCheckAuthStatus);
     on<TeacherIdChanged>(_onTeacherIdChanged);
     on<RefreshMasterData>(_onRefreshMasterData);
+    on<CacheSyncCompleted>(_onCacheSyncCompleted);
   }
 
   String? _validateTeacherId(String teacherId) {
@@ -58,18 +71,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   String? _validatePhoneNumber(String phoneNumber) {
-    if (phoneNumber.isEmpty) {
-      return 'Phone number is required';
-    }
-    // Remove common formatting characters
-    final cleaned = phoneNumber.replaceAll(RegExp(r'[\s\-\(\)]'), '');
-    if (cleaned.length < 9 || cleaned.length > 15) {
-      return 'Please enter a valid phone number';
-    }
-    if (!RegExp(r'^\+?\d+$').hasMatch(cleaned)) {
-      return 'Phone number must contain only numbers and optional + prefix';
-    }
-    return null;
+    return SriLankaPhoneUtils.validateMobileField(phoneNumber);
   }
 
   String? _validatePassword(String password) {
@@ -216,13 +218,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
 
+    final normalizedPhone =
+        SriLankaPhoneUtils.normalizeToLocalTenDigits(state.phoneNumber)!;
+
     emit(state.copyWith(
       status: FormzStatus.submissionInProgress,
       hasSubmitted: true,
       clearErrorMessage: true,
     ));
 
-    final result = await signIn(state.phoneNumber, state.password, state.teacherId);
+    final result = await signIn(normalizedPhone, state.password, state.teacherId);
     await result.fold(
           (failure) async {
         emit(state.copyWith(
@@ -278,6 +283,64 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         emit(state.copyWith(
           status: FormzStatus.submissionSuccess,
           user: user,
+          isLogout: false,
+          clearErrorMessage: true,
+        ));
+      },
+    );
+  }
+
+  Future<void> _onSignInStudentSubmitted(
+      SignInStudentSubmitted event,
+      Emitter<AuthState> emit,
+  ) async {
+    if (state.status.isSubmissionInProgress) return;
+
+    final phoneErr = SriLankaPhoneUtils.validateMobileField(event.username);
+    if (phoneErr != null) {
+      emit(state.copyWith(
+        status: FormzStatus.submissionFailure,
+        errorMessage: phoneErr,
+        hasSubmitted: true,
+      ));
+      return;
+    }
+
+    emit(state.copyWith(
+      status: FormzStatus.submissionInProgress,
+      hasSubmitted: true,
+      clearErrorMessage: true,
+    ));
+
+    final result = await signInStudent(event.schoolId, event.username, event.password);
+    await result.fold(
+      (failure) async {
+        emit(state.copyWith(
+          status: FormzStatus.submissionFailure,
+          errorMessage: _getUserFriendlyErrorMessage(failure),
+        ));
+      },
+      (signInResult) async {
+        await UserSessionService.saveUserSession(
+          signInResult.user,
+          studentDetails: signInResult.studentDetails,
+          rememberMe: event.rememberMe,
+        );
+        // Await initial sync so Home shows data on first open (fixes first-launch empty UI)
+        final schoolId = signInResult.user.teacherId;
+        final studentId = signInResult.user.userId;
+        if (schoolId != null && schoolId.isNotEmpty) {
+          try {
+            final didSync = await schoolCacheSyncService.sync(schoolId, studentId: studentId);
+            if (didSync) print('✅ School cache synced for school $schoolId');
+          } catch (e) {
+            print('⚠️ School cache sync failed: $e');
+          }
+        }
+        emit(state.copyWith(
+          status: FormzStatus.submissionSuccess,
+          user: signInResult.user,
+          isLogout: false,
           clearErrorMessage: true,
         ));
       },
@@ -290,10 +353,30 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       ) async {
     if (state.status.isSubmissionInProgress) return;
 
+    final teacherIdError = _validateTeacherId(state.teacherId);
+    final phoneNumberError = _validatePhoneNumber(state.phoneNumber);
+    final passwordError = _validatePassword(state.password);
+    if (teacherIdError != null ||
+        phoneNumberError != null ||
+        passwordError != null) {
+      emit(state.copyWith(
+        teacherIdError: teacherIdError,
+        phoneNumberError: phoneNumberError,
+        passwordError: passwordError,
+        status: FormzStatus.submissionFailure,
+        hasSubmitted: true,
+        clearErrorMessage: true,
+      ));
+      return;
+    }
+
+    final normalizedPhone =
+        SriLankaPhoneUtils.normalizeToLocalTenDigits(state.phoneNumber)!;
+
     emit(state.copyWith(status: FormzStatus.submissionInProgress));
 
     final result = await signUp(
-      state.phoneNumber, 
+      normalizedPhone,
       state.password,
       state.name,
       state.birthday,
@@ -352,6 +435,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         emit(state.copyWith(
           status: FormzStatus.submissionSuccess,
           user: user,
+          isLogout: false,
         ));
       },
     );
@@ -376,9 +460,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         ));
       },
           (_) async {
-        // Clear user session and master data
+        final schoolId = (await UserSessionService.getCurrentUser())?.teacherId;
         await UserSessionService.clearUserSession();
         await MasterDataService.clearMasterData();
+        if (schoolId != null && schoolId.isNotEmpty) {
+          await schoolCacheService.clearSchool(schoolId);
+        }
         emit(const AuthState(isLogout: true));
       },
     );
@@ -390,28 +477,114 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     final user = await UserSessionService.getCurrentUser();
     if (user != null) {
-      emit(state.copyWith(
-        status: FormzStatus.submissionSuccess,
-        user: user,
-      ));
-      
-      // Check if master data needs refresh (older than 2 hours)
-      if (user.teacherId != null && user.teacherId!.isNotEmpty) {
-        final shouldRefresh = await MasterDataService.shouldRefreshMasterData();
-        if (shouldRefresh) {
-          print('🔄 AuthBloc: Master data cache is older than 2 hours, refreshing...');
-          // Refresh master data in background
-          _refreshMasterDataInBackground(user.teacherId!);
+      final studentDetails = await UserSessionService.getStudentDetails();
+      final schoolId = user.teacherId;
+
+      if (studentDetails != null &&
+          schoolId != null &&
+          schoolId.isNotEmpty) {
+        // Single app_config read: get data_version, update_the_app, and docs for sync
+        final appConfig = await schoolCacheSyncService.fetchAppConfigOnLoad(schoolId);
+        final localVersion = await SchoolCacheDatabase.getDataVersion(schoolId);
+        final hasCachedData = localVersion != null;
+        final needSync = !hasCachedData ||
+            (appConfig.dataVersion != null &&
+                (localVersion ?? -1) < appConfig.dataVersion!);
+
+        if (!hasCachedData) {
+          // First launch: show loading, sync (reuses app_config from fetch above), then emit
+          emit(state.copyWith(
+            status: FormzStatus.submissionSuccess,
+            user: user,
+            isLogout: false,
+            isInitialSyncInProgress: true,
+          ));
+          try {
+            final didSync = await schoolCacheSyncService.sync(
+              schoolId,
+              studentId: user.userId,
+              preFetchedAppConfigDocs: appConfig.appConfigDocs,
+              preFetchedRemoteVersion: appConfig.dataVersion,
+            );
+            if (didSync) print('✅ School cache synced on app start (initial)');
+          } catch (e) {
+            print('⚠️ School cache sync on start failed: $e');
+          }
+          emit(state.copyWith(
+            status: FormzStatus.submissionSuccess,
+            user: user,
+            isLogout: false,
+            isInitialSyncInProgress: false,
+            forceUpdateRequired: appConfig.updateTheApp,
+          ));
         } else {
-          print('✅ AuthBloc: Master data cache is still fresh (less than 2 hours old)');
+          // Returning user: emit immediately; run sync in background only when cache is stale
+          emit(state.copyWith(
+            status: FormzStatus.submissionSuccess,
+            user: user,
+            isLogout: false,
+            forceUpdateRequired: appConfig.updateTheApp,
+          ));
+          if (needSync) {
+            schoolCacheSyncService
+                .sync(
+                  schoolId,
+                  studentId: user.userId,
+                  preFetchedAppConfigDocs: appConfig.appConfigDocs,
+                  preFetchedRemoteVersion: appConfig.dataVersion,
+                )
+                .then((didSync) {
+                  if (didSync) {
+                    print('✅ School cache synced on app start (background)');
+                    add(const CacheSyncCompleted());
+                  }
+                })
+                .catchError((e) {
+                  print('⚠️ School cache sync on start failed: $e');
+                });
+          }
         }
+      } else {
+        emit(state.copyWith(
+          status: FormzStatus.submissionSuccess,
+          user: user,
+          isLogout: false,
+        ));
       }
+
+      // Stopped: no longer fetch master data from Firebase on home/app load
+      // // Check if master data needs refresh (older than 2 hours)
+      // if (user.teacherId != null && user.teacherId!.isNotEmpty) {
+      //   final shouldRefresh = await MasterDataService.shouldRefreshMasterData();
+      //   if (shouldRefresh) {
+      //     print('🔄 AuthBloc: Master data cache is older than 2 hours, refreshing...');
+      //     // Refresh master data in background
+      //     _refreshMasterDataInBackground(user.teacherId!);
+      //   } else {
+      //     print('✅ AuthBloc: Master data cache is still fresh (less than 2 hours old)');
+      //   }
+      // }
     } else {
       emit(state.copyWith(
         status: FormzStatus.pure,
         user: null,
+        isLogout: false,
       ));
     }
+  }
+
+  Future<void> _onCacheSyncCompleted(CacheSyncCompleted event, Emitter<AuthState> emit) async {
+    final schoolId = state.user?.teacherId;
+    bool forceUpdate = false;
+    if (schoolId != null && schoolId.isNotEmpty) {
+      // Sync just wrote app_config to cache; read from cache (no extra Firestore read)
+      final appConfig = await schoolCacheService.getAppConfigSingle(schoolId);
+      forceUpdate = appConfig?.updateTheApp ?? false;
+    }
+    emit(state.copyWith(
+      cacheSyncVersion: state.cacheSyncVersion + 1,
+      forceUpdateRequired: forceUpdate,
+    ));
   }
 
   // Handler for manual refresh master data event
@@ -420,12 +593,33 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     final user = state.user;
-    if (user?.teacherId == null || user!.teacherId!.isEmpty) {
-      print('⚠️ AuthBloc: Cannot refresh master data - no teacherId');
+    if (user == null || user.teacherId == null || user.teacherId!.isEmpty) {
+      print('⚠️ AuthBloc: Cannot update app data - no teacherId/schoolId');
       return;
     }
-    
-    await _refreshMasterDataInBackground(user.teacherId!);
+
+    final schoolId = user.teacherId!;
+
+    // 1) Force a full school cache sync from Firestore (ignore data_version check).
+    //    This reloads app_config, classes, class_subjects, timetables, enrollments, invoices, payments, etc.
+    try {
+      final didSync = await schoolCacheSyncService.sync(
+        schoolId,
+        studentId: user.userId,
+        force: true,
+      );
+      if (didSync) {
+        print('✅ AuthBloc: Forced app data sync completed for schoolId=$schoolId');
+        add(const CacheSyncCompleted());
+      } else {
+        print('ℹ️ AuthBloc: Forced app data sync skipped (no changes) for schoolId=$schoolId');
+      }
+    } catch (e) {
+      print('⚠️ AuthBloc: Forced app data sync failed: $e');
+    }
+
+    // 2) Optionally refresh teacher master data in background (for teacher accounts).
+    await _refreshMasterDataInBackground(schoolId);
   }
 
   // Helper method to refresh master data in background

@@ -6,14 +6,14 @@ import '../usecases/add_video.dart';
 abstract class VideoRepository {
   Future<Either<Failure, List<Video>>> getVideos({
     String? userId,
-    String? teacherId,
+    String? schoolId,
     String? grade,
     String? subject,
     int? month,
     int? year,
     String? accessLevel,
   });
-  Future<Either<Failure, List<Video>>> getFreeVideos(String teacherId);
-  Future<Either<Failure, List<Video>>> getFreeVideosByGrade(String teacherId, String grade);
+  Future<Either<Failure, List<Video>>> getFreeVideos(String schoolId);
+  Future<Either<Failure, List<Video>>> getFreeVideosByGrade(String schoolId, String grade);
   Future<Either<Failure, Video>> addVideo(AddVideoParams params);
 } 

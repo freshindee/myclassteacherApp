@@ -7,5 +7,6 @@ abstract class ExamPaperRepository {
     required String grade,
     required int subjectId,
     int? chapterId,
+    String? subjectIdStr,
   });
 }

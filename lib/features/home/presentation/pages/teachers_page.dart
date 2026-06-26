@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../domain/entities/teacher.dart';
-import '../../../../core/services/master_data_service.dart';
+import '../../../../injection_container.dart';
+import '../../../../core/services/school_cache_service.dart';
+import '../../../../core/services/user_session_service.dart';
 
 class TeachersPage extends StatefulWidget {
-  const TeachersPage({super.key});
+  const TeachersPage({super.key, this.embedInHomeShell = false});
+
+  final bool embedInHomeShell;
 
   @override
   State<TeachersPage> createState() => _TeachersPageState();
@@ -15,48 +19,87 @@ class _TeachersPageState extends State<TeachersPage> {
   bool _isLoading = true;
   String? _error;
 
+  String? _schoolId;
+  bool _schoolIdLoading = true;
+
   @override
   void initState() {
     super.initState();
-    _loadTeachers();
+    _loadSchoolId();
   }
 
-  Future<void> _loadTeachers() async {
+  Future<void> _loadSchoolId() async {
+    final user = await UserSessionService.getCurrentUser();
+    if (mounted) {
+      final id = user?.teacherId ?? '';
+      setState(() {
+        _schoolId = id;
+        _schoolIdLoading = false;
+      });
+      if (id.isNotEmpty) {
+        await _loadTeachersFromCache(id);
+      }
+    }
+  }
+
+  /// Converts a teacher document from local cache (teachers table) to [Teacher] entity.
+  Teacher _teacherFromMap(Map<String, dynamic> map) {
+    final id = map['id']?.toString() ?? '';
+    // Firestore schema: full_name, specialization, subjects (array), phone, etc.
+    final name = (map['full_name'] ?? map['name'] ?? map['teacher_name'] ?? map['title'])?.toString().trim() ?? '';
+
+    String subject = (map['specialization'] ?? map['subject'] ?? map['subject_name'])?.toString().trim() ?? '';
+    if (subject.isEmpty) {
+      final subjectsField = map['subjects'];
+      if (subjectsField is List && subjectsField.isNotEmpty) {
+        subject = subjectsField.first.toString().trim();
+      }
+    }
+
+    final grade = (map['grade'] ?? map['grade_number'] ?? map['grades'])?.toString().trim() ?? '';
+    // Firebase DB column key: profile_image_url (Firebase Storage https URL). Fallbacks for legacy/cache.
+    final image = (map['profile_image_url'] ?? map['profileImageUrl'] ?? map['image'] ?? map['photo'] ?? map['image_url'] ?? map['photo_url'])
+            ?.toString()
+            .trim() ??
+        '';
+    final phone = (map['phone'] ?? map['phone_number'] ?? map['contact'])?.toString().trim() ?? '';
+    final displayId = (map['displayId'] ?? map['display_id'])?.toString().trim() ?? '';
+    final qualification = (map['qualification'] ?? map['qualification_name'])?.toString().trim() ?? '';
+    final specialization = (map['specialization'] ?? map['specialization_name'])?.toString().trim() ?? '';
+    return Teacher(
+      id: id,
+      name: name.isEmpty ? '—' : name,
+      subject: subject,
+      grade: grade,
+      image: image,
+      phone: phone,
+      displayId: displayId,
+      qualification: qualification,
+      specialization: specialization,
+    );
+  }
+
+  Future<void> _loadTeachersFromCache(String schoolId) async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _error = null;
     });
-
     try {
-      // Try to get teachers from master data
-      final masterData = await MasterDataService.getTeacherMasterData();
-      if (masterData != null && masterData.teachers.isNotEmpty) {
-        setState(() {
-          _teachers = masterData.teachers;
-          _isLoading = false;
-        });
-        print('📦 TeachersPage: Loaded ${_teachers.length} teachers from master data');
-        for (var teacher in _teachers) {
-          print('📦 TeachersPage: Teacher: ${teacher.name}, Image URL: ${teacher.image}');
-        }
-      } else {
-        // Fallback to getTeachers method
-        final teachers = await MasterDataService.getTeachers();
-        setState(() {
-          _teachers = teachers;
-          _isLoading = false;
-        });
-        print('📦 TeachersPage: Loaded ${_teachers.length} teachers from separate storage');
-        for (var teacher in _teachers) {
-          print('📦 TeachersPage: Teacher: ${teacher.name}, Image URL: ${teacher.image}');
-        }
-      }
-    } catch (e) {
+      final list = await sl<SchoolCacheService>().getTeachers(schoolId);
+      if (!mounted) return;
+      final teachers = list.map(_teacherFromMap).toList();
       setState(() {
-        _error = e.toString();
+        _teachers = teachers;
         _isLoading = false;
       });
-      print('❌ TeachersPage: Error loading teachers: $e');
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -209,36 +252,67 @@ class _TeachersPageState extends State<TeachersPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_schoolIdLoading) {
+      return Scaffold(
+        appBar: widget.embedInHomeShell
+            ? null
+            : AppBar(
+                title: const Text('Teachers'),
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    final schoolId = _schoolId ?? '';
+    if (schoolId.isEmpty) {
+      return Scaffold(
+        appBar: widget.embedInHomeShell
+            ? null
+            : AppBar(
+                title: const Text('Teachers'),
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+        body: const Center(child: Text('School not found. Please login again.')),
+      );
+    }
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Teachers'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadTeachers,
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
+      appBar: widget.embedInHomeShell
+          ? null
+          : AppBar(
+              title: const Text('Teachers'),
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () => _loadTeachersFromCache(schoolId),
+                  tooltip: 'Refresh',
+                ),
+              ],
+            ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Error: $_error',
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadTeachers,
-                        child: const Text('Retry'),
-                      ),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _error!,
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => _loadTeachersFromCache(schoolId),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
                   ),
                 )
               : _buildTeacherList(context, _teachers),
@@ -288,369 +362,212 @@ class _TeachersPageState extends State<TeachersPage> {
     );
   }
 
+  /// Compact teacher card: circular photo, name, subject (blue), grades, Call + WhatsApp (blue theme).
   Widget _buildTeacherCard(BuildContext context, Teacher teacher) {
+    const bluePrimary = Colors.blue;
+    final blueShade = Colors.blue.shade700;
+    final blueLight = Colors.blue.shade50;
+
+    final gradesDisplay = teacher.grade.trim().isEmpty
+        ? '—'
+        : teacher.grade.split(RegExp(r'[,;]')).map((s) => s.trim()).where((s) => s.isNotEmpty).map((g) {
+            final val = g.replaceAll(RegExp(r'[^0-9]'), '');
+            return val.isEmpty ? g : 'Grade $val';
+          }).join(', ');
+
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 6,
-      shadowColor: Colors.black26,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.white,
-              Colors.grey.shade50,
-            ],
-          ),
-          border: Border.all(
-            color: Colors.grey.shade200,
-            width: 1,
-          ),
-        ),
-        child: InkWell(
-          onTap: () {
-            // You can add navigation to teacher details page here
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Teacher: ${teacher.name}'),
-                duration: const Duration(seconds: 1),
+      margin: EdgeInsets.zero,
+      elevation: 2,
+      shadowColor: Colors.black12,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Circular profile picture (supports Firebase Storage https URLs)
+            ClipOval(
+              child: SizedBox(
+                width: 100,
+                height: 100,
+                child: _isValidImageUrl(teacher.image)
+                    ? Image.network(
+                        _getImageUrl(teacher.image),
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                        loadingBuilder: (_, child, progress) {
+                          if (progress == null) return child;
+                          return _teacherPhotoPlaceholder();
+                        },
+                        errorBuilder: (_, __, ___) => _teacherPhotoPlaceholder(),
+                      )
+                    : _teacherPhotoPlaceholder(),
               ),
-            );
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Teacher Photo Section (Top)
-              Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                  ),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.blue.shade50,
-                      Colors.blue.shade100,
-                    ],
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                  ),
-                  child: _isValidImageUrl(teacher.image)
-                      ? Builder(
-                          builder: (context) {
-                            final imageUrl = _getImageUrl(teacher.image);
-                            print('🖼️ TeachersPage: Loading image for teacher ${teacher.name}');
-                            print('🖼️ TeachersPage: Original URL: ${teacher.image}');
-                            print('🖼️ TeachersPage: Final URL: $imageUrl');
-                            
-                            return Image.network(
-                              imageUrl,
-                              width: double.infinity,
-                              height: 200,
-                              fit: BoxFit.cover,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) {
-                                  print('🖼️ TeachersPage: Image loaded successfully for ${teacher.name}');
-                                  return child;
-                                }
-                                final progress = loadingProgress.cumulativeBytesLoaded / (loadingProgress.expectedTotalBytes ?? 1);
-                                print('🖼️ TeachersPage: Loading image for ${teacher.name}: ${(progress * 100).toStringAsFixed(1)}%');
-                                return Container(
-                                  width: double.infinity,
-                                  height: 200,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[200],
-                                  ),
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        CircularProgressIndicator(
-                                          strokeWidth: 3,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Text(
-                                          'Loading...',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.grey[700],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                              errorBuilder: (context, error, stackTrace) {
-                                print('❌ TeachersPage: Error loading image for ${teacher.name}');
-                                print('❌ TeachersPage: Original URL: ${teacher.image}');
-                                print('❌ TeachersPage: Final URL: $imageUrl');
-                                print('❌ TeachersPage: Error: $error');
-                                print('❌ TeachersPage: Stack trace: $stackTrace');
-                                return Container(
-                                  width: double.infinity,
-                                  height: 200,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[200],
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.person,
-                                        size: 60,
-                                        color: Colors.grey[500],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Photo\nUnavailable',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                                if (wasSynchronouslyLoaded) return child;
-                                return AnimatedOpacity(
-                                  opacity: frame == null ? 0 : 1,
-                                  duration: const Duration(milliseconds: 300),
-                                  child: child,
-                                );
-                              },
-                            );
-                          },
-                        )
-                      : Container(
-                          width: double.infinity,
-                          height: 200,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[200],
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.person,
-                                size: 60,
-                                color: Colors.grey[500],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'No\nPhoto',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                ),
-              ),
-              
-              // Teacher Details Section (Bottom)
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Teacher Name
-                    Text(
-                      teacher.name,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                        height: 1.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    teacher.name,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Subject Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.blue.shade400, Colors.blue.shade600],
-                        ),
-                        borderRadius: BorderRadius.circular(25),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.withOpacity(0.3),
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        teacher.subject,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    teacher.subject,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: blueShade,
                     ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Grade and Phone Info - Stacked vertically
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    gradesDisplay,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (teacher.qualification.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Grade Info
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.orange.shade200,
-                              width: 1,
+                        Icon(Icons.school_outlined, size: 14, color: Colors.grey[600]),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            teacher.qualification,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[700],
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.shade100,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.grade,
-                                  size: 20,
-                                  color: Colors.orange.shade700,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Grade ${teacher.grade}',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.orange.shade700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Phone and WhatsApp Info
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.green.shade200,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.shade100,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.phone,
-                                  size: 20,
-                                  color: Colors.green.shade700,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  teacher.phone.isNotEmpty ? teacher.phone : 'No phone number',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.green.shade700,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (teacher.phone.isNotEmpty) ...[
-                                const SizedBox(width: 8),
-                                // WhatsApp Button
-                                Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: () => _launchWhatsApp(teacher.phone),
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF25D366), // WhatsApp green
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.chat,
-                                            size: 18,
-                                            color: Colors.white,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          const Text(
-                                            'WhatsApp',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
                   ],
-                ),
+                  if (teacher.specialization.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.psychology_outlined, size: 14, color: Colors.grey[600]),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            teacher.specialization,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[700],
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      // Call button – light blue background, blue icon/text
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: teacher.phone.isNotEmpty
+                              ? () {
+                                  final uri = Uri.parse('tel:${teacher.phone}');
+                                  launchUrl(uri, mode: LaunchMode.externalApplication);
+                                }
+                              : null,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: blueLight,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.phone, size: 18, color: blueShade),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Call',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: blueShade,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // WhatsApp button – solid blue background, white icon/text
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: teacher.phone.isNotEmpty ? () => _launchWhatsApp(teacher.phone) : null,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: bluePrimary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.chat, size: 18, color: Colors.white),
+                                SizedBox(width: 6),
+                                Text(
+                                  'WhatsApp',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _teacherPhotoPlaceholder() {
+    return Container(
+      color: Colors.grey[300],
+      child: Icon(Icons.person, size: 36, color: Colors.grey[600]),
     );
   }
 } 

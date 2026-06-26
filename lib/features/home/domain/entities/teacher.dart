@@ -8,6 +8,8 @@ class Teacher extends Equatable {
   final String image;
   final String phone;
   final String displayId;
+  final String qualification;
+  final String specialization;
 
   const Teacher({
     required this.id,
@@ -17,8 +19,10 @@ class Teacher extends Equatable {
     required this.image,
     this.phone = '',
     this.displayId = '',
+    this.qualification = '',
+    this.specialization = '',
   });
 
   @override
-  List<Object?> get props => [id, name, subject, grade, image, phone, displayId];
+  List<Object?> get props => [id, name, subject, grade, image, phone, displayId, qualification, specialization];
 } 

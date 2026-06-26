@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../../../injection_container.dart';
-import '../../../../core/usecases.dart';
-import '../../domain/usecases/get_exam_subjects.dart';
+import '../../../../core/widgets/grade_selector.dart';
+import '../../../../core/services/school_cache_service.dart';
+import '../../../../core/services/user_session_service.dart';
 import '../../domain/usecases/get_exam_chapters.dart';
-import '../../domain/entities/exam_subject.dart';
 import '../../domain/entities/exam_chapter.dart';
 import 'exam_papers_list_page.dart';
 
 class OnlineExamSelectionPage extends StatefulWidget {
-  const OnlineExamSelectionPage({super.key});
+  const OnlineExamSelectionPage({super.key, this.embedInHomeShell = false});
+
+  /// When true, [HomePage] shows the app bar; hide local [AppBar].
+  final bool embedInHomeShell;
 
   @override
   State<OnlineExamSelectionPage> createState() => _OnlineExamSelectionPageState();
@@ -16,67 +19,77 @@ class OnlineExamSelectionPage extends StatefulWidget {
 
 class _OnlineExamSelectionPageState extends State<OnlineExamSelectionPage> {
   String? selectedGrade;
-  ExamSubject? selectedSubject;
+  String? schoolId;
+  String? selectedClassName;
+  Map<String, dynamic>? selectedClassDoc;
+  List<Map<String, dynamic>> _classesForGrade = [];
+  bool _loadingClasses = false;
+  List<Map<String, dynamic>> _classSubjectsForSelectedClass = [];
+  bool _loadingClassSubjects = false;
+  Map<String, String> _subjectIdToName = {};
+  String? selectedSubject; // display name from class_subject chip
+
   ExamChapter? selectedChapter;
-
-  // Hardcoded grades from 1 to 13
-  final List<String> _grades = List.generate(13, (index) => (index + 1).toString());
-  List<ExamSubject> _subjects = [];
-  bool _isLoadingSubjects = true;
-  String? _subjectsError;
-
   List<ExamChapter> _chapters = [];
   bool _isLoadingChapters = false;
   String? _chaptersError;
 
-  final GetExamSubjects _getExamSubjects = sl<GetExamSubjects>();
+  bool _schoolIdLoading = true;
+
   final GetExamChapters _getExamChapters = sl<GetExamChapters>();
 
   @override
   void initState() {
     super.initState();
-    _loadSubjects();
+    _loadSchoolId();
   }
 
-  Future<void> _loadSubjects() async {
-    setState(() {
-      _isLoadingSubjects = true;
-      _subjectsError = null;
-    });
-    
-    try {
-      print('📝 [DEBUG] OnlineExamSelectionPage - Starting to load subjects from API');
-      
-      final result = await _getExamSubjects(NoParams());
-      
-      result.fold(
-        (failure) {
-          print('❌ [DEBUG] OnlineExamSelectionPage - Failed to load subjects: ${failure.message}');
-          setState(() {
-            _subjectsError = failure.message;
-            _subjects = [];
-            _isLoadingSubjects = false;
-          });
-        },
-        (subjects) {
-          print('✅ [DEBUG] OnlineExamSelectionPage - Successfully loaded ${subjects.length} subjects from API');
-          setState(() {
-            _subjects = subjects;
-            _isLoadingSubjects = false;
-          });
-        },
-      );
-    } catch (e) {
-      print('❌ [DEBUG] OnlineExamSelectionPage - Error loading subjects: $e');
+  Future<void> _loadSchoolId() async {
+    final user = await UserSessionService.getCurrentUser();
+    if (mounted) {
       setState(() {
-        _subjectsError = e.toString();
-        _subjects = [];
-        _isLoadingSubjects = false;
+        schoolId = user?.teacherId ?? '';
+        _schoolIdLoading = false;
       });
     }
   }
 
-  Future<void> _loadChapters(int subjectId) async {
+  String _subjectDisplayName(Map<String, dynamic> classSubjectItem) {
+    final subjectId = classSubjectItem['subject_id']?.toString() ??
+        classSubjectItem['subjectId']?.toString() ??
+        classSubjectItem['subject']?.toString();
+    if (subjectId == null || subjectId.isEmpty) return '—';
+    return _subjectIdToName[subjectId] ?? '—';
+  }
+
+  /// Selected class_subject id (string) - sent to APIs as subject_id.
+  String? _getSelectedClassSubjectId() {
+    if (selectedSubject == null || selectedSubject!.isEmpty) return null;
+    for (final item in _classSubjectsForSelectedClass) {
+      if (_subjectDisplayName(item) == selectedSubject) {
+        final id = item['id']?.toString();
+        if (id != null && id.isNotEmpty) return id;
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /// User-friendly message when no exam chapters/papers exist for the subject.
+  static const String _noChaptersMessage =
+      'මෙම විෂය සඳහා විභාග පත්‍රිකා තවම ලබා දී නැත. ඉක්මනින් ඔබට පෙනෙනු ඇත.';
+
+  static String _chaptersErrorMessage(String raw) {
+    final lower = raw.toLowerCase();
+    if (lower.contains('no chapters found') ||
+        lower.contains('chapters found for this subject') ||
+        lower.contains('no exam chapters')) {
+      return _noChaptersMessage;
+    }
+    return raw;
+  }
+
+  Future<void> _loadChapters(String subjectId) async {
     setState(() {
       _isLoadingChapters = true;
       _chaptersError = null;
@@ -91,27 +104,33 @@ class _OnlineExamSelectionPageState extends State<OnlineExamSelectionPage> {
       result.fold(
         (failure) {
           print('❌ [DEBUG] OnlineExamSelectionPage - Failed to load chapters: ${failure.message}');
-          setState(() {
-            _chaptersError = failure.message;
-            _chapters = [];
-            _isLoadingChapters = false;
-          });
+          if (mounted) {
+            setState(() {
+              _chaptersError = _chaptersErrorMessage(failure.message);
+              _chapters = [];
+              _isLoadingChapters = false;
+            });
+          }
         },
         (chapters) {
           print('✅ [DEBUG] OnlineExamSelectionPage - Successfully loaded ${chapters.length} chapters from API');
-          setState(() {
-            _chapters = chapters;
-            _isLoadingChapters = false;
-          });
+          if (mounted) {
+            setState(() {
+              _chapters = chapters;
+              _isLoadingChapters = false;
+            });
+          }
         },
       );
     } catch (e) {
       print('❌ [DEBUG] OnlineExamSelectionPage - Error loading chapters: $e');
-      setState(() {
-        _chaptersError = e.toString();
-        _chapters = [];
-        _isLoadingChapters = false;
-      });
+      if (mounted) {
+        setState(() {
+          _chaptersError = _chaptersErrorMessage(e.toString());
+          _chapters = [];
+          _isLoadingChapters = false;
+        });
+      }
     }
   }
 
@@ -125,17 +144,27 @@ class _OnlineExamSelectionPageState extends State<OnlineExamSelectionPage> {
       );
       return;
     }
+    final classSubjectId = _getSelectedClassSubjectId();
+    if (classSubjectId == null || classSubjectId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('විෂය තෝරාගැනීමට පන්තිය සහ විෂය තෝරන්න'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
 
-    // Navigate to exam papers list page
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ExamPapersListPage(
           grade: selectedGrade!,
-          subjectId: selectedSubject!.id,
+          subjectId: 0,
           chapterId: selectedChapter?.id,
-          subjectName: selectedSubject!.name,
+          subjectName: selectedSubject!,
           chapterName: selectedChapter?.name,
+          classSubjectId: classSubjectId,
         ),
       ),
     );
@@ -143,128 +172,231 @@ class _OnlineExamSelectionPageState extends State<OnlineExamSelectionPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_schoolIdLoading) {
+      return Scaffold(
+        appBar: widget.embedInHomeShell
+            ? null
+            : AppBar(
+                title: const Text('අන්තර්ජාල විභාග'),
+                centerTitle: true,
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final schoolId = this.schoolId ?? '';
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('අන්තර්ජාල විභාග'),
-        centerTitle: true,
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-      ),
+      appBar: widget.embedInHomeShell
+          ? null
+          : AppBar(
+              title: const Text('අන්තර්ජාල විභාග'),
+              centerTitle: true,
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header Icon
-            const Icon(
-              Icons.quiz,
-              size: 80,
-              color: Colors.blue,
-            ),
+            const Icon(Icons.quiz, size: 80, color: Colors.blue),
             const SizedBox(height: 16),
             const Text(
               'විභාගයක් තෝරාගැනීමට ශ්‍රේණිය සහ විෂය තෝරන්න',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
-            
-            // Grade Dropdown
-            const Text(
-              'ශ්‍රේණිය',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
+            const SizedBox(height: 24),
+
+            GradeSelector(
               value: selectedGrade,
-              decoration: const InputDecoration(
-                labelText: 'ශ්‍රේණිය තෝරන්න',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.school),
-              ),
-              items: _grades.map((grade) {
-                return DropdownMenuItem<String>(
-                  value: grade,
-                  child: Text('Grade $grade'),
-                );
-              }).toList(),
-              onChanged: (value) {
+              label: 'පන්තිය',
+              hint: 'පන්තිය තෝරන්න',
+              onGradeSelected: (value) async {
                 setState(() {
                   selectedGrade = value;
-                  // Clear subject selection when grade changes
+                  selectedClassName = null;
+                  selectedClassDoc = null;
                   selectedSubject = null;
+                  selectedChapter = null;
+                  _classesForGrade = [];
+                  _classSubjectsForSelectedClass = [];
+                  _subjectIdToName = {};
+                  _chapters = [];
                 });
+                if (value != null && value.isNotEmpty && schoolId.isNotEmpty) {
+                  setState(() => _loadingClasses = true);
+                  final cache = sl<SchoolCacheService>();
+                  final list = await cache.getClassesByGradeNumber(schoolId, value);
+                  if (mounted) {
+                    setState(() {
+                      _classesForGrade = list;
+                      _loadingClasses = false;
+                      if (list.length == 1) {
+                        selectedClassDoc = list.first;
+                        selectedClassName = SchoolCacheService.classDisplayName(list.first, value);
+                      }
+                    });
+                    if (list.length == 1 && list.first.isNotEmpty && schoolId.isNotEmpty) {
+                      setState(() => _loadingClassSubjects = true);
+                      final cache = sl<SchoolCacheService>();
+                      final doc = list.first;
+                      final classId = doc['id']?.toString() ?? '';
+                      final cName = SchoolCacheService.classDisplayName(doc, value);
+                      final subjects = await cache.getClassSubjectsForClass(schoolId, classId, cName);
+                      final subjectDocs = await cache.getSubjects(schoolId);
+                      final idToName = <String, String>{};
+                      for (final s in subjectDocs) {
+                        final id = s['id']?.toString();
+                        if (id == null) continue;
+                        final name = s['subject'] ?? s['name'] ?? s['title'];
+                        if (name != null && name.toString().trim().isNotEmpty) {
+                          idToName[id] = name.toString().trim();
+                        }
+                      }
+                      if (mounted) {
+                        setState(() {
+                          _classSubjectsForSelectedClass = subjects;
+                          _subjectIdToName = idToName;
+                          _loadingClassSubjects = false;
+                        });
+                      }
+                    }
+                  }
+                }
               },
             ),
-            const SizedBox(height: 24),
-            
-            // Subject Dropdown
-            const Text(
-              'විෂය',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<ExamSubject>(
-              value: selectedSubject,
-              decoration: InputDecoration(
-                labelText: 'විෂය තෝරන්න',
-                border: const OutlineInputBorder(),
-                errorText: _subjectsError != null ? _subjectsError : null,
-                prefixIcon: const Icon(Icons.book),
-              ),
-              items: _isLoadingSubjects
-                  ? [
-                      const DropdownMenuItem<ExamSubject>(
-                        value: null,
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    ]
-                  : _subjects.isEmpty
-                      ? [
-                          const DropdownMenuItem<ExamSubject>(
-                            value: null,
-                            child: Text('විෂය නොමැත'),
-                          )
-                        ]
-                      : _subjects.map((subject) {
-                          return DropdownMenuItem<ExamSubject>(
-                            value: subject,
-                            child: Text(subject.name),
-                          );
-                        }).toList(),
-              onChanged: _isLoadingSubjects || _subjects.isEmpty
-                  ? null
-                  : (value) {
-                      setState(() {
-                        selectedSubject = value;
-                        selectedChapter = null; // Clear chapter selection
-                        _chapters = []; // Clear chapters list
-                      });
-                      // Load chapters when subject is selected
-                      if (value != null) {
-                        _loadChapters(value.id);
+
+            if (selectedGrade != null && selectedGrade!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              if (_loadingClasses)
+                const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
+              else if (_classesForGrade.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'මෙම පන්තිය සඳහා පන්ති නොමැත',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  ),
+                )
+              else
+                DropdownButtonFormField<String>(
+                  value: selectedClassName != null &&
+                          _classesForGrade.any((c) =>
+                              SchoolCacheService.classDisplayName(c, selectedGrade!) == selectedClassName)
+                      ? selectedClassName
+                      : null,
+                  decoration: const InputDecoration(
+                    labelText: 'පන්තියේ නම',
+                    border: OutlineInputBorder(),
+                  ),
+                  hint: const Text('පන්තිය තෝරන්න'),
+                  items: _classesForGrade.map((c) {
+                    final name = SchoolCacheService.classDisplayName(c, selectedGrade!);
+                    return DropdownMenuItem<String>(value: name, child: Text(name));
+                  }).toList(),
+                  onChanged: (value) async {
+                    final className = value ?? '';
+                    final doc = _classesForGrade.cast<Map<String, dynamic>>().firstWhere(
+                          (c) => SchoolCacheService.classDisplayName(c, selectedGrade!) == className,
+                          orElse: () => <String, dynamic>{},
+                        );
+                    setState(() {
+                      selectedClassName = className;
+                      selectedClassDoc = doc.isNotEmpty ? doc : null;
+                      selectedSubject = null;
+                      selectedChapter = null;
+                      _classSubjectsForSelectedClass = [];
+                      _subjectIdToName = {};
+                      _chapters = [];
+                    });
+                    if (doc.isNotEmpty && schoolId.isNotEmpty) {
+                      setState(() => _loadingClassSubjects = true);
+                      final cache = sl<SchoolCacheService>();
+                      final classId = doc['id']?.toString() ?? '';
+                      final list = await cache.getClassSubjectsForClass(schoolId, classId, className);
+                      final subjectDocs = await cache.getSubjects(schoolId);
+                      final idToName = <String, String>{};
+                      for (final s in subjectDocs) {
+                        final id = s['id']?.toString();
+                        if (id == null) continue;
+                        final name = s['subject'] ?? s['name'] ?? s['title'];
+                        if (name != null && name.toString().trim().isNotEmpty) {
+                          idToName[id] = name.toString().trim();
+                        }
                       }
-                    },
-            ),
-            const SizedBox(height: 24),
-            
-            // Chapters Section
+                      if (mounted) {
+                        setState(() {
+                          _classSubjectsForSelectedClass = list;
+                          _subjectIdToName = idToName;
+                          _loadingClassSubjects = false;
+                        });
+                      }
+                    }
+                  },
+                ),
+              const SizedBox(height: 12),
+            ],
+
+            if (selectedClassDoc != null && selectedClassName != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'විෂය',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              if (_loadingClassSubjects)
+                const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
+              else if (_classSubjectsForSelectedClass.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'මෙම පන්තිය සඳහා විෂය නොමැත',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  ),
+                )
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _classSubjectsForSelectedClass.map((item) {
+                    final name = _subjectDisplayName(item);
+                    final isSelected = selectedSubject == name;
+                    return FilterChip(
+                      label: Text(name),
+                      selected: isSelected,
+                      onSelected: (_) {
+                        setState(() {
+                          selectedSubject = isSelected ? null : name;
+                          selectedChapter = null;
+                          _chapters = [];
+                        });
+                        if (!isSelected) {
+                          final id = item['id']?.toString();
+                          if (id != null && id.isNotEmpty) _loadChapters(id);
+                        }
+                      },
+                      selectedColor: Colors.blue.shade100,
+                      checkmarkColor: Colors.blue.shade700,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.blue.shade700 : Colors.black87,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              const SizedBox(height: 16),
+            ],
+
             if (selectedSubject != null) ...[
               const Text(
                 'පාඩම්',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               if (_isLoadingChapters)
@@ -319,9 +451,7 @@ class _OnlineExamSelectionPageState extends State<OnlineExamSelectionPage> {
                       label: Text(chapter.name),
                       selected: isSelected,
                       onSelected: (selected) {
-                        setState(() {
-                          selectedChapter = selected ? chapter : null;
-                        });
+                        setState(() => selectedChapter = selected ? chapter : null);
                       },
                       selectedColor: Colors.blue.shade100,
                       checkmarkColor: Colors.blue.shade700,
@@ -335,10 +465,8 @@ class _OnlineExamSelectionPageState extends State<OnlineExamSelectionPage> {
                 ),
               const SizedBox(height: 24),
             ],
-            
+
             const SizedBox(height: 8),
-            
-            // Search Button
             SizedBox(
               height: 50,
               child: ElevatedButton.icon(

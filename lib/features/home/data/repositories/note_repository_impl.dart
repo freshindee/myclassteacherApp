@@ -15,13 +15,13 @@ class NoteRepositoryImpl implements NoteRepository {
   });
 
   @override
-  Future<Either<Failure, List<Note>>> getNotes(String teacherId) async {
-    print('📝 [REPOSITORY] NoteRepository.getNotes called with teacherId: $teacherId');
+  Future<Either<Failure, List<Note>>> getNotes(String schoolId) async {
+    print('📝 [REPOSITORY] NoteRepository.getNotes called with schoolId: $schoolId');
     
     if (await networkInfo.isConnected) {
       try {
         print('📝 [REPOSITORY] Network connected, calling remote data source...');
-        final noteModels = await remoteDataSource.getNotes(teacherId);
+        final noteModels = await remoteDataSource.getNotes(schoolId);
         print('📝 [REPOSITORY] Successfully fetched ${noteModels.length} note models from remote data source');
         
         final notes = noteModels.map((model) => Note(
@@ -30,6 +30,7 @@ class NoteRepositoryImpl implements NoteRepository {
           title: model.title,
           description: model.description,
           pdfUrl: model.pdfUrl,
+          month: model.month,
         )).toList();
         
         print('📝 [REPOSITORY] Successfully converted ${notes.length} note models to entities');
@@ -45,13 +46,13 @@ class NoteRepositoryImpl implements NoteRepository {
   }
 
   @override
-  Future<Either<Failure, List<Note>>> getNotesByGrade(String teacherId, String grade) async {
-    print('📝 [REPOSITORY] NoteRepository.getNotesByGrade called with teacherId: $teacherId, grade: $grade');
+  Future<Either<Failure, List<Note>>> getNotesByGrade(String schoolId, String grade) async {
+    print('📝 [REPOSITORY] NoteRepository.getNotesByGrade called with schoolId: $schoolId, grade: $grade');
     
     if (await networkInfo.isConnected) {
       try {
         print('📝 [REPOSITORY] Network connected, calling remote data source...');
-        final noteModels = await remoteDataSource.getNotesByGrade(teacherId, grade);
+        final noteModels = await remoteDataSource.getNotesByGrade(schoolId, grade);
         print('📝 [REPOSITORY] Successfully fetched ${noteModels.length} note models from remote data source for grade $grade');
         
         final notes = noteModels.map((model) => Note(
@@ -60,6 +61,7 @@ class NoteRepositoryImpl implements NoteRepository {
           title: model.title,
           description: model.description,
           pdfUrl: model.pdfUrl,
+          month: model.month,
         )).toList();
         
         print('📝 [REPOSITORY] Successfully converted ${notes.length} note models to entities for grade $grade');

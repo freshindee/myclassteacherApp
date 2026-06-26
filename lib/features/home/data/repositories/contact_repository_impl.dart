@@ -17,13 +17,13 @@ class ContactRepositoryImpl implements ContactRepository {
   });
 
   @override
-  Future<Either<Failure, List<Contact>>> getContacts(String teacherId) async {
-    print('📞 [REPOSITORY] ContactRepository.getContacts called with teacherId: $teacherId');
+  Future<Either<Failure, List<Contact>>> getContacts(String schoolId) async {
+    print('📞 [REPOSITORY] ContactRepository.getContacts called with schoolId: $schoolId');
     
     if (await networkInfo.isConnected) {
       try {
         print('📞 [REPOSITORY] Network connected, calling remote data source...');
-        final contactModels = await remoteDataSource.getContacts(teacherId);
+        final contactModels = await remoteDataSource.getContacts(schoolId);
         print('📞 [REPOSITORY] Successfully fetched ${contactModels.length} contact models from remote data source');
         
         final contacts = contactModels.map((model) => Contact(
@@ -56,13 +56,13 @@ class ContactRepositoryImpl implements ContactRepository {
   }
 
   @override
-  Future<Either<Failure, Contact?>> getContactById(String teacherId, String contactId) async {
-    print('📞 [REPOSITORY] ContactRepository.getContactById called with teacherId: $teacherId, contactId: $contactId');
+  Future<Either<Failure, Contact?>> getContactById(String schoolId, String contactId) async {
+    print('📞 [REPOSITORY] ContactRepository.getContactById called with schoolId: $schoolId, contactId: $contactId');
     
     if (await networkInfo.isConnected) {
       try {
         print('📞 [REPOSITORY] Network connected, calling remote data source...');
-        final contactModel = await remoteDataSource.getContactById(teacherId, contactId);
+        final contactModel = await remoteDataSource.getContactById(schoolId, contactId);
         
         if (contactModel == null) {
           print('📞 [REPOSITORY] Contact not found for contactId: $contactId');

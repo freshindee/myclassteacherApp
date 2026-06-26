@@ -18,7 +18,7 @@ class TermTestPaperBloc extends Bloc<TermTestPaperEvent, TermTestPaperState> {
     try {
       final papers = await getTermTestPapers(
         GetTermTestPapersParams(
-          teacherId: event.teacherId,
+          schoolId: event.schoolId,
           grade: event.grade,
           subject: event.subject,
           term: event.term,

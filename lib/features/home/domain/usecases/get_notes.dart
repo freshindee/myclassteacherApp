@@ -10,7 +10,7 @@ class GetNotes implements UseCase<List<Note>, String> {
   GetNotes(this.repository);
 
   @override
-  Future<Either<Failure, List<Note>>> call(String teacherId) async {
-    return await repository.getNotes(teacherId);
+  Future<Either<Failure, List<Note>>> call(String schoolId) async {
+    return await repository.getNotes(schoolId);
   }
 } 

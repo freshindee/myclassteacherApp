@@ -3,7 +3,7 @@ import '../../../../core/constants/api_endpoints.dart';
 import '../models/exam_chapter_model.dart';
 
 abstract class ExamChapterRemoteDataSource {
-  Future<List<ExamChapterModel>> getExamChapters(int subjectId);
+  Future<List<ExamChapterModel>> getExamChapters(String subjectId);
 }
 
 class ExamChapterRemoteDataSourceImpl implements ExamChapterRemoteDataSource {
@@ -12,10 +12,10 @@ class ExamChapterRemoteDataSourceImpl implements ExamChapterRemoteDataSource {
   ExamChapterRemoteDataSourceImpl({required this.apiClient});
 
   @override
-  Future<List<ExamChapterModel>> getExamChapters(int subjectId) async {
+  Future<List<ExamChapterModel>> getExamChapters(String subjectId) async {
     try {
-      print('📝 [API REQUEST] ExamChapterDataSource.getExamChapters called with subjectId: $subjectId');
-      
+      print('📝 [API REQUEST] ExamChapterDataSource.getExamChapters called with subject_id: $subjectId');
+
       final response = await apiClient.get(
         ApiEndpoints.papersChapters,
         queryParameters: {'subject_id': subjectId},

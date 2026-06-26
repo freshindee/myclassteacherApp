@@ -2,9 +2,11 @@ import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failures.dart';
 import '../entities/user.dart';
+import '../entities/sign_in_student_result.dart';
 
 abstract class AuthRepository {
   Future<Either<Failure, User>> signIn(String phoneNumber, String password, String teacherId);
+  Future<Either<Failure, SignInStudentResult>> signInStudent(String schoolId, String username, String password);
   Future<Either<Failure, User>> signUp(
     String phoneNumber, 
     String password,

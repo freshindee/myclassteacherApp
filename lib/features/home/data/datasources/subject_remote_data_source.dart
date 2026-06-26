@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/subject_model.dart';
 
 abstract class SubjectRemoteDataSource {
-  Future<List<SubjectModel>> getSubjects(String teacherId);
+  Future<List<SubjectModel>> getSubjects(String schoolId);
 }
 
 class SubjectRemoteDataSourceImpl implements SubjectRemoteDataSource {
@@ -10,16 +10,17 @@ class SubjectRemoteDataSourceImpl implements SubjectRemoteDataSource {
   SubjectRemoteDataSourceImpl({required this.firestore});
 
   @override
-  Future<List<SubjectModel>> getSubjects(String teacherId) async {
+  Future<List<SubjectModel>> getSubjects(String schoolId) async {
     try {
-      print('📚 [API REQUEST] SubjectDataSource.getSubjects called with teacherId: $teacherId');
+      print('📚 [API REQUEST] SubjectDataSource.getSubjects called with schoolId: $schoolId');
       
       final querySnapshot = await firestore
+          .collection('schools')
+          .doc(schoolId)
           .collection('subjects')
-          .where('teacherId', isEqualTo: teacherId)
           .get();
       
-      print('📚 [API RESPONSE] Found ${querySnapshot.docs.length} subject documents for teacherId: $teacherId');
+      print('📚 [API RESPONSE] Found ${querySnapshot.docs.length} subject documents for schoolId: $schoolId');
       
       final subjects = querySnapshot.docs.map((doc) {
         final data = doc.data();

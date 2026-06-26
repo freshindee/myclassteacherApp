@@ -8,16 +8,16 @@ abstract class FreeVideosEvent extends Equatable {
 }
 
 class LoadFreeVideos extends FreeVideosEvent {
-  final String teacherId;
-  const LoadFreeVideos(this.teacherId);
+  final String schoolId;
+  const LoadFreeVideos(this.schoolId);
   @override
-  List<Object> get props => [teacherId];
+  List<Object> get props => [schoolId];
 }
 
 class LoadFreeVideosByGrade extends FreeVideosEvent {
-  final String teacherId;
+  final String schoolId;
   final String grade;
-  const LoadFreeVideosByGrade(this.teacherId, this.grade);
+  const LoadFreeVideosByGrade(this.schoolId, this.grade);
   @override
-  List<Object> get props => [teacherId, grade];
+  List<Object> get props => [schoolId, grade];
 } 

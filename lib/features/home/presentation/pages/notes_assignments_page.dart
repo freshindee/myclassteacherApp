@@ -6,7 +6,6 @@ import 'dart:developer' as developer;
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../../../../core/errors/failures.dart';
-import '../../../../core/usecases.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/note.dart';
 import '../../domain/usecases/get_notes.dart';
@@ -33,7 +32,7 @@ class NotesAssignmentsPage extends StatefulWidget {
 
 class _NotesAssignmentsPageState extends State<NotesAssignmentsPage> {
   String? selectedGrade;
-  String? teacherId;
+  String? schoolId;
   bool _hasLoadedNotes = false;
   final Map<String, bool> _downloadingNotes = {}; // Track downloading state per note
 
@@ -47,13 +46,20 @@ class _NotesAssignmentsPageState extends State<NotesAssignmentsPage> {
   Future<void> _loadTeacherId() async {
     final user = await UserSessionService.getCurrentUser();
     setState(() {
-      teacherId = user?.teacherId ?? '';
+      schoolId = user?.teacherId ?? '';
     });
+  }
+
+  /// When [NotesAssignmentsPage.initialMonth] is set, only notes whose Firestore `month` matches are listed.
+  List<Note> _notesForSelectedMonth(List<Note> notes) {
+    final m = widget.initialMonth;
+    if (m == null) return notes;
+    return notes.where((n) => n.month == m).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (teacherId == null) {
+    if (schoolId == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return BlocProvider(
@@ -61,13 +67,13 @@ class _NotesAssignmentsPageState extends State<NotesAssignmentsPage> {
       child: Builder(
         builder: (context) {
           // Auto-load notes if initialGrade is provided (only once)
-          if (selectedGrade != null && teacherId != null && teacherId!.isNotEmpty && !_hasLoadedNotes) {
+          if (selectedGrade != null && schoolId != null && schoolId!.isNotEmpty && !_hasLoadedNotes) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted && context.mounted) {
                 setState(() {
                   _hasLoadedNotes = true;
                 });
-                context.read<NotesAssignmentsBloc>().add(LoadNotesByGrade(teacherId!, selectedGrade!));
+                context.read<NotesAssignmentsBloc>().add(LoadNotesByGrade(schoolId!, selectedGrade!));
               }
             });
           }
@@ -88,19 +94,22 @@ class _NotesAssignmentsPageState extends State<NotesAssignmentsPage> {
               if (state is NotesAssignmentsLoading) {
                 return const Center(child: CircularProgressIndicator());
               } else if (state is NotesAssignmentsLoaded) {
-                if (state.notes.isEmpty) {
-                  return const Center(
+                final visibleNotes = _notesForSelectedMonth(state.notes);
+                if (visibleNotes.isEmpty) {
+                  return Center(
                     child: Text(
-                      'මෙම පන්තිය සදහා සටහන් නොමැත.',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                      widget.initialMonth != null && state.notes.isNotEmpty
+                          ? 'මෙම මාසය සඳහා සටහන් නොමැත.'
+                          : 'මෙම පන්තිය සදහා සටහන් නොමැත.',
+                      style: const TextStyle(fontSize: 16, color: Colors.grey),
                     ),
                   );
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: state.notes.length,
+                  itemCount: visibleNotes.length,
                   itemBuilder: (context, index) {
-                    final note = state.notes[index];
+                    final note = visibleNotes[index];
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
                       elevation: 4,

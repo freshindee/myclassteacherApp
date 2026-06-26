@@ -3,6 +3,6 @@ import '../../../../core/errors/failures.dart';
 import '../entities/timetable.dart';
 
 abstract class TimetableRepository {
-  Future<Either<Failure, List<Timetable>>> getTimetableByGrade(String teacherId, String grade);
-  Future<Either<Failure, List<String>>> getAvailableGrades(String teacherId);
+  Future<Either<Failure, List<Timetable>>> getTimetableByGrade(String schoolId, String grade);
+  Future<Either<Failure, List<String>>> getAvailableGrades(String schoolId);
 } 

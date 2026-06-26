@@ -148,6 +148,8 @@ class MasterDataService {
         image: json['image'] as String,
         phone: json['phone'] as String? ?? '',
         displayId: json['displayId'] as String? ?? '',
+        qualification: (json['qualification'] ?? json['qualification_name'])?.toString() ?? '',
+        specialization: (json['specialization'] ?? json['specialization_name'])?.toString() ?? '',
       )).toList();
     } catch (e) {
       return [];
@@ -171,6 +173,8 @@ class MasterDataService {
         'image': t.image,
         'phone': t.phone,
         'displayId': t.displayId,
+        'qualification': t.qualification,
+        'specialization': t.specialization,
       }).toList(),
       'bankDetails': masterData.bankDetails,
       'sliderImages': masterData.sliderImages,
@@ -244,6 +248,8 @@ class MasterDataService {
         image: json['image'] as String? ?? '',
         phone: json['phone'] as String? ?? '',
         displayId: json['displayId'] as String? ?? '',
+        qualification: (json['qualification'] ?? json['qualification_name'])?.toString() ?? '',
+        specialization: (json['specialization'] ?? json['specialization_name'])?.toString() ?? '',
       )).toList();
       
       // Parse bankDetails array

@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/utils/month_utils.dart';
 import '../../domain/entities/payment.dart';
 
 class PaymentModel extends Equatable {
@@ -15,6 +16,8 @@ class PaymentModel extends Equatable {
   final DateTime createdAt;
   final DateTime? completedAt;
   final String? slipUrl;
+  final String? className;
+  final String? classSubjectId;
 
   const PaymentModel({
     required this.id,
@@ -29,28 +32,44 @@ class PaymentModel extends Equatable {
     required this.createdAt,
     this.completedAt,
     this.slipUrl,
+    this.className,
+    this.classSubjectId,
   });
 
   @override
-  List<Object?> get props => [id, userId, teacherId, grade, subject, month, year, amount, status, createdAt, completedAt, slipUrl];
+  List<Object?> get props => [id, userId, teacherId, grade, subject, month, year, amount, status, createdAt, completedAt, slipUrl, className, classSubjectId];
 
   factory PaymentModel.fromJson(Map<String, dynamic> json) {
+    final uid = json['userId'] ?? json['student_id'];
     return PaymentModel(
       id: json['id'] as String,
-      userId: json['userId'] as String,
-      teacherId: json['teacherId'] as String? ?? '', // Handle backward compatibility for old payments
-      grade: json['grade'] as String,
-      subject: json['subject'] as String,
-      month: json['month'] as int,
-      year: json['year'] as int,
-      amount: (json['amount'] as num).toDouble(),
-      status: json['status'] as String,
-      createdAt: (json['createdAt'] as Timestamp).toDate(),
-      completedAt: json['completedAt'] != null 
-          ? (json['completedAt'] as Timestamp).toDate()
-          : null,
-      slipUrl: json['slipUrl'] as String?,
+      userId: uid != null ? uid.toString() : '',
+      teacherId: json['teacherId'] as String? ?? '',
+      grade: (json['grade'] ?? '').toString(),
+      subject: (json['subject'] ?? json['subject_name'] ?? '').toString(),
+      month: _monthFromJson(json['month']),
+      year: json['year'] as int? ?? DateTime.now().year,
+      amount: ((json['amount'] ?? 0) as num).toDouble(),
+      status: (json['status'] ?? 'pending').toString(),
+      createdAt: json['createdAt'] != null ? (json['createdAt'] as Timestamp).toDate() : (json['date'] != null ? (json['date'] as Timestamp).toDate() : DateTime.now()),
+      completedAt: json['completedAt'] != null ? (json['completedAt'] as Timestamp).toDate() : null,
+      slipUrl: (json['slipUrl'] ?? json['slip_image_path']) as String?,
+      className: json['className'] as String? ?? json['class_name'] as String?,
+      classSubjectId: json['classSubjectId'] as String? ?? json['class_subject_id'] as String?,
     );
+  }
+
+  static int _monthFromJson(dynamic v) {
+    if (v == null) return 1;
+    if (v is int) return v;
+    if (v is String) {
+      try {
+        return MonthUtils.getMonthNumber(v);
+      } catch (_) {
+        return 1;
+      }
+    }
+    return 1;
   }
 
   Map<String, dynamic> toJson() {
@@ -84,6 +103,8 @@ class PaymentModel extends Equatable {
       createdAt: createdAt,
       completedAt: completedAt,
       slipUrl: slipUrl,
+      className: className,
+      classSubjectId: classSubjectId,
     );
   }
 } 

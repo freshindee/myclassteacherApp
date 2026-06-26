@@ -13,6 +13,8 @@ class Payment extends Equatable {
   final DateTime createdAt;
   final DateTime? completedAt;
   final String? slipUrl;
+  final String? className;
+  final String? classSubjectId;
 
   const Payment({
     required this.id,
@@ -27,6 +29,8 @@ class Payment extends Equatable {
     required this.createdAt,
     this.completedAt,
     this.slipUrl,
+    this.className,
+    this.classSubjectId,
   });
 
   @override
@@ -43,5 +47,7 @@ class Payment extends Equatable {
         createdAt,
         completedAt,
         slipUrl,
+        className,
+        classSubjectId,
       ];
 } 

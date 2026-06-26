@@ -9,7 +9,7 @@ class GetContacts implements UseCase<List<Contact>, String> {
   GetContacts(this.repository);
   
   @override
-  Future<Either<Failure, List<Contact>>> call(String teacherId) async {
-    return await repository.getContacts(teacherId);
+  Future<Either<Failure, List<Contact>>> call(String schoolId) async {
+    return await repository.getContacts(schoolId);
   }
 } 

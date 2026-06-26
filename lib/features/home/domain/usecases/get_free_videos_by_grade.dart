@@ -10,13 +10,13 @@ class GetFreeVideosByGrade implements UseCase<List<Video>, GetFreeVideosByGradeP
   
   @override
   Future<Either<Failure, List<Video>>> call(GetFreeVideosByGradeParams params) async {
-    return await repository.getFreeVideosByGrade(params.teacherId, params.grade);
+    return await repository.getFreeVideosByGrade(params.schoolId, params.grade);
   }
 }
 
 class GetFreeVideosByGradeParams {
-  final String teacherId;
+  final String schoolId;
   final String grade;
   
-  GetFreeVideosByGradeParams({required this.teacherId, required this.grade});
+  GetFreeVideosByGradeParams({required this.schoolId, required this.grade});
 } 

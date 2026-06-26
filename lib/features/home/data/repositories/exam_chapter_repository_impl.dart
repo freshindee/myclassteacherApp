@@ -16,12 +16,11 @@ class ExamChapterRepositoryImpl implements ExamChapterRepository {
   });
 
   @override
-  Future<Either<Failure, List<ExamChapter>>> getExamChapters(int subjectId) async {
+  Future<Either<Failure, List<ExamChapter>>> getExamChapters(String subjectId) async {
     print('📚 [REPOSITORY] ExamChapterRepository.getExamChapters called with subjectId: $subjectId');
-    
+
     if (await networkInfo.isConnected) {
       try {
-        print('📚 [REPOSITORY] Network connected, calling remote data source...');
         final chapterModels = await remoteDataSource.getExamChapters(subjectId);
         print('📚 [REPOSITORY] Successfully fetched ${chapterModels.length} exam chapter models from remote data source');
         

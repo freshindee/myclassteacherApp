@@ -11,6 +11,8 @@ class CreatePaymentRequested extends PaymentEvent {
   final String userId;
   final String teacherId;
   final String grade;
+  final String className;
+  final String classSubjectId;
   final String subject;
   final String month;
   final int year;
@@ -21,6 +23,8 @@ class CreatePaymentRequested extends PaymentEvent {
     required this.userId,
     required this.teacherId,
     required this.grade,
+    required this.className,
+    required this.classSubjectId,
     required this.subject,
     required this.month,
     required this.year,
@@ -52,10 +56,10 @@ class CheckAccessRequested extends PaymentEvent {
 }
 
 class LoadPayAccountDetails extends PaymentEvent {
-  final String teacherId;
+  final String schoolId;
 
-  const LoadPayAccountDetails(this.teacherId);
+  const LoadPayAccountDetails(this.schoolId);
 
   @override
-  List<Object> get props => [teacherId];
+  List<Object> get props => [schoolId];
 } 

@@ -8,7 +8,7 @@ class GetFreeVideos implements UseCase<List<Video>, String> {
   final VideoRepository repository;
   GetFreeVideos(this.repository);
   @override
-  Future<Either<Failure, List<Video>>> call(String teacherId) async {
-    return await repository.getFreeVideos(teacherId);
+  Future<Either<Failure, List<Video>>> call(String schoolId) async {
+    return await repository.getFreeVideos(schoolId);
   }
 } 

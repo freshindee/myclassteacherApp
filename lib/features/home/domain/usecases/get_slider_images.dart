@@ -10,7 +10,7 @@ class GetSliderImages implements UseCase<List<SliderImage>, String> {
   GetSliderImages(this.repository);
 
   @override
-  Future<Either<Failure, List<SliderImage>>> call(String teacherId) async {
-    return await repository.getSliderImages(teacherId);
+  Future<Either<Failure, List<SliderImage>>> call(String schoolId) async {
+    return await repository.getSliderImages(schoolId);
   }
 }

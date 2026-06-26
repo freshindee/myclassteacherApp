@@ -10,7 +10,7 @@ class GetAdvertisements implements UseCase<List<Video>, String> {
   GetAdvertisements(this.repository);
 
   @override
-  Future<Either<Failure, List<Video>>> call(String teacherId) async {
-    return await repository.getAdvertisements(teacherId);
+  Future<Either<Failure, List<Video>>> call(String schoolId) async {
+    return await repository.getAdvertisements(schoolId);
   }
 } 

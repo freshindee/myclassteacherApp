@@ -3,8 +3,8 @@ import 'dart:developer' as developer;
 import '../models/contact_model.dart';
 
 abstract class ContactRemoteDataSource {
-  Future<List<ContactModel>> getContacts(String teacherId);
-  Future<ContactModel?> getContactById(String teacherId, String contactId);
+  Future<List<ContactModel>> getContacts(String schoolId);
+  Future<ContactModel?> getContactById(String schoolId, String contactId);
 }
 
 class ContactRemoteDataSourceImpl implements ContactRemoteDataSource {
@@ -15,16 +15,17 @@ class ContactRemoteDataSourceImpl implements ContactRemoteDataSource {
   });
 
   @override
-  Future<List<ContactModel>> getContacts(String teacherId) async {
+  Future<List<ContactModel>> getContacts(String schoolId) async {
     try {
-      print('📞 [API REQUEST] ContactDataSource.getContacts called with teacherId: $teacherId');
+      print('📞 [API REQUEST] ContactDataSource.getContacts called with schoolId: $schoolId');
       
       final querySnapshot = await firestore
+          .collection('schools')
+          .doc(schoolId)
           .collection('contacts')
-          .where('teacherId', isEqualTo: teacherId)
           .get();
       
-      print('📞 [API RESPONSE] Found ${querySnapshot.docs.length} contact documents for teacherId: $teacherId');
+      print('📞 [API RESPONSE] Found ${querySnapshot.docs.length} contact documents for schoolId: $schoolId');
       
       final contacts = querySnapshot.docs.map((doc) {
         final data = doc.data();
@@ -44,11 +45,13 @@ class ContactRemoteDataSourceImpl implements ContactRemoteDataSource {
   }
 
   @override
-  Future<ContactModel?> getContactById(String teacherId, String contactId) async {
+  Future<ContactModel?> getContactById(String schoolId, String contactId) async {
     try {
-      print('📞 [API REQUEST] ContactDataSource.getContactById called with teacherId: $teacherId, contactId: $contactId');
+      print('📞 [API REQUEST] ContactDataSource.getContactById called with schoolId: $schoolId, contactId: $contactId');
       
       final doc = await firestore
+          .collection('schools')
+          .doc(schoolId)
           .collection('contacts')
           .doc(contactId)
           .get();
@@ -60,12 +63,6 @@ class ContactRemoteDataSourceImpl implements ContactRemoteDataSource {
       
       final data = doc.data()!;
       print('📞 [API RESPONSE] Contact document ${doc.id}: $data');
-      
-      // Check if the contact belongs to the specified teacher
-      if (data['teacherId'] != teacherId) {
-        print('📞 [API RESPONSE] Contact does not belong to teacherId: $teacherId');
-        return null;
-      }
       
       final contact = ContactModel.fromJson({
         'id': doc.id,

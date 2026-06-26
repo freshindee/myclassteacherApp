@@ -10,7 +10,6 @@ class TodayClassModel {
   final String joinUrl;
   final String? zoomId;
   final String? password;
-  final String? accessLevel;
 
   TodayClassModel({
     required this.grade,
@@ -21,7 +20,6 @@ class TodayClassModel {
     required this.joinUrl,
     this.zoomId,
     this.password,
-    this.accessLevel,
   });
 
   factory TodayClassModel.fromJson(Map<String, dynamic> json) {
@@ -67,7 +65,6 @@ class TodayClassModel {
       joinUrl: json['joinUrl'] as String,
       zoomId: zoomId,
       password: password,
-      accessLevel: json['accessLevel'] as String?,
     );
   }
 
@@ -81,7 +78,6 @@ class TodayClassModel {
       joinUrl: joinUrl,
       zoomId: zoomId,
       password: password,
-      accessLevel: accessLevel,
     );
   }
 } 

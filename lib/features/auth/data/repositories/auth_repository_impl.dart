@@ -2,6 +2,7 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/network_info.dart';
 import '../../domain/entities/user.dart';
+import '../../domain/entities/sign_in_student_result.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
 
@@ -42,6 +43,29 @@ class AuthRepositoryImpl implements AuthRepository {
       }
     } else {
       print('🔐 [REPOSITORY ERROR] No internet connection');
+      return Left(ServerFailure('No internet connection'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, SignInStudentResult>> signInStudent(String schoolId, String username, String password) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final result = await remoteDataSource.signInStudent(schoolId, username, password);
+        final user = User(
+          userId: result.user.userId,
+          phoneNumber: result.user.phoneNumber,
+          password: result.user.password,
+          name: result.user.name,
+          birthday: result.user.birthday,
+          district: result.user.district,
+          teacherId: result.user.teacherId,
+        );
+        return Right(SignInStudentResult(user: user, studentDetails: result.studentDetails));
+      } catch (e) {
+        return Left(ServerFailure(e.toString()));
+      }
+    } else {
       return Left(ServerFailure('No internet connection'));
     }
   }

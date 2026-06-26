@@ -13,7 +13,7 @@ class GetTermTestPapers implements UseCase<List<TermTestPaper>, GetTermTestPaper
   Future<Either<Failure, List<TermTestPaper>>> call(GetTermTestPapersParams params) async {
     try {
       final result = await repository.getTermTestPapers(
-        teacherId: params.teacherId, 
+        schoolId: params.schoolId, 
         grade: params.grade, 
         subject: params.subject, 
         term: params.term
@@ -26,13 +26,13 @@ class GetTermTestPapers implements UseCase<List<TermTestPaper>, GetTermTestPaper
 }
 
 class GetTermTestPapersParams {
-  final String teacherId;
+  final String schoolId;
   final String? grade;
   final String? subject;
   final int? term;
   
   GetTermTestPapersParams({
-    required this.teacherId, 
+    required this.schoolId, 
     this.grade, 
     this.subject, 
     this.term

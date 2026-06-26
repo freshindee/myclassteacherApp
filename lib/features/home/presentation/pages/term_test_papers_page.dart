@@ -18,7 +18,7 @@ class _TermTestPapersPageState extends State<TermTestPapersPage> {
   String? selectedGrade;
   String? selectedSubject;
   int? selectedTerm;
-  String? teacherId;
+  String? schoolId;
 
   final List<String> grades = [
     '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'
@@ -38,13 +38,13 @@ class _TermTestPapersPageState extends State<TermTestPapersPage> {
   Future<void> _loadTeacherId() async {
     final user = await UserSessionService.getCurrentUser();
     setState(() {
-      teacherId = user?.teacherId ?? '';
+      schoolId = user?.teacherId ?? '';
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (teacherId == null) {
+    if (schoolId == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return Scaffold(
@@ -212,9 +212,9 @@ class _TermTestPapersPageState extends State<TermTestPapersPage> {
   }
 
   void _fetchFiltered(BuildContext context) {
-    if (selectedGrade != null && selectedSubject != null && selectedTerm != null && teacherId != null) {
+    if (selectedGrade != null && selectedSubject != null && selectedTerm != null && schoolId != null) {
       context.read<TermTestPaperBloc>().add(FetchTermTestPapers(
-        teacherId: teacherId!,
+        schoolId: schoolId!,
         grade: selectedGrade,
         subject: selectedSubject,
         term: selectedTerm,
